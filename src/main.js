@@ -6,9 +6,18 @@ const os = require('os');
 
 let mainWindow;
 const runningProcesses = new Map();
+const resourceSamples = new Map();
+const resourceSampleTimers = new Map();
 const DATA_FILE = path.join(app.getPath('userData'), 'projects.json');
 const LOGS_FILE = path.join(app.getPath('userData'), 'process-logs.json');
 const MAX_LOG_ENTRIES_PER_PROJECT = 1000;
+const RESOURCE_SAMPLE_MS = 2000;
+const MAX_PROJECT_TREE_ENTRIES = 500;
+const MAX_TEXT_PREVIEW_BYTES = 120 * 1024;
+const TREE_IGNORE_DIRS = new Set([
+  '.git', 'node_modules', '.venv', 'venv', 'env', 'dist', 'build', 'out',
+  '.next', '.expo', '.turbo', '.cache', '__pycache__',
+]);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -34,8 +43,11 @@ function createWindow() {
   mainWindow.on('closed', () => {
     runningProcesses.forEach((proc) => terminateProcessTree(proc));
     terminals.forEach((proc) => terminateProcessTree(proc));
+    resourceSampleTimers.forEach((timer) => clearInterval(timer));
     runningProcesses.clear();
     terminals.clear();
+    resourceSampleTimers.clear();
+    resourceSamples.clear();
     mainWindow = null;
   });
 }
@@ -123,6 +135,103 @@ ipcMain.handle('clear-process-log', (_, id) => {
   if (id) delete logs[id];
   return saveProcessLogs(logs);
 });
+
+function isInsidePath(rootPath, targetPath) {
+  const root = path.resolve(rootPath);
+  const target = path.resolve(targetPath);
+  return target === root || target.startsWith(root + path.sep);
+}
+
+function listProjectFiles(rootPath) {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return { success: false, error: validation.error, files: [] };
+
+  const files = [];
+  let truncated = false;
+
+  function walk(dirPath, depth) {
+    if (files.length >= MAX_PROJECT_TREE_ENTRIES) {
+      truncated = true;
+      return;
+    }
+
+    let entries = [];
+    try {
+      entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    } catch (e) {
+      return;
+    }
+
+    entries
+      .filter((entry) => !entry.name.startsWith('.') || entry.name === '.env')
+      .filter((entry) => !(entry.isDirectory() && TREE_IGNORE_DIRS.has(entry.name)))
+      .sort((a, b) => Number(b.isDirectory()) - Number(a.isDirectory()) || a.name.localeCompare(b.name))
+      .forEach((entry) => {
+        if (files.length >= MAX_PROJECT_TREE_ENTRIES) {
+          truncated = true;
+          return;
+        }
+
+        const fullPath = path.join(dirPath, entry.name);
+        const relativePath = path.relative(rootPath, fullPath);
+        files.push({
+          name: entry.name,
+          path: relativePath,
+          type: entry.isDirectory() ? 'dir' : 'file',
+          depth,
+        });
+
+        if (entry.isDirectory() && depth < 3) walk(fullPath, depth + 1);
+      });
+  }
+
+  walk(rootPath, 0);
+  return { success: true, files, truncated };
+}
+
+function readProjectTextFile(rootPath, relativePath) {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return { success: false, error: validation.error };
+  if (!relativePath || path.isAbsolute(relativePath)) return { success: false, error: 'Select a project file first.' };
+
+  const fullPath = path.resolve(rootPath, relativePath);
+  if (!isInsidePath(rootPath, fullPath)) return { success: false, error: 'File is outside the project folder.' };
+
+  try {
+    const stat = fs.statSync(fullPath);
+    if (!stat.isFile()) return { success: false, error: 'Select a file to preview.' };
+    if (stat.size > MAX_TEXT_PREVIEW_BYTES) return { success: false, error: 'File is too large to preview.' };
+
+    const buffer = fs.readFileSync(fullPath);
+    if (buffer.includes(0)) return { success: false, error: 'Binary files are not previewed.' };
+    return { success: true, path: relativePath, size: stat.size, text: buffer.toString('utf8') };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function getGitInfo(rootPath) {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return Promise.resolve({ success: false, error: validation.error });
+
+  return new Promise((resolve) => {
+    execFile('git', ['-C', rootPath, 'status', '--short', '--branch'], { timeout: 5000 }, (statusErr, statusOut) => {
+      if (statusErr) return resolve({ success: false, error: 'No git repository detected.' });
+
+      execFile('git', ['-C', rootPath, 'log', '--oneline', '-5'], { timeout: 5000 }, (logErr, logOut) => {
+        resolve({
+          success: true,
+          status: statusOut || '',
+          log: logErr ? '' : (logOut || ''),
+        });
+      });
+    });
+  });
+}
+
+ipcMain.handle('terminal-list-project-files', (_, rootPath) => listProjectFiles(rootPath));
+ipcMain.handle('terminal-read-project-file', (_, { rootPath, relativePath }) => readProjectTextFile(rootPath, relativePath));
+ipcMain.handle('terminal-git-info', (_, rootPath) => getGitInfo(rootPath));
 
 // ─── File / folder dialogs ───────────────────────────────────────────────────
 
@@ -311,6 +420,124 @@ function terminateProcessTree(proc) {
   });
 }
 
+function stopResourceSampler(id) {
+  const timer = resourceSampleTimers.get(id);
+  if (timer) clearInterval(timer);
+  resourceSampleTimers.delete(id);
+  resourceSamples.delete(id);
+}
+
+function getDescendantProcesses(processes, rootPid) {
+  const byParent = new Map();
+  processes.forEach((proc) => {
+    const parent = Number(proc.ppid);
+    if (!byParent.has(parent)) byParent.set(parent, []);
+    byParent.get(parent).push(proc);
+  });
+
+  const tree = [];
+  const queue = [Number(rootPid)];
+  const seen = new Set();
+
+  while (queue.length) {
+    const pid = queue.shift();
+    if (seen.has(pid)) continue;
+    seen.add(pid);
+
+    const current = processes.find((proc) => Number(proc.pid) === pid);
+    if (current) tree.push(current);
+
+    (byParent.get(pid) || []).forEach((child) => queue.push(Number(child.pid)));
+  }
+
+  return tree;
+}
+
+function parsePsCpuTime(value) {
+  const parts = String(value || '0').trim().split(/[-:]/).map(Number);
+  if (parts.some((part) => Number.isNaN(part))) return 0;
+  if (parts.length === 4) return (((parts[0] * 24 + parts[1]) * 60 + parts[2]) * 60 + parts[3]);
+  if (parts.length === 3) return ((parts[0] * 60 + parts[1]) * 60 + parts[2]);
+  if (parts.length === 2) return (parts[0] * 60 + parts[1]);
+  return parts[0] || 0;
+}
+
+function collectWindowsProcesses() {
+  const script = 'Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,WorkingSetSize,KernelModeTime,UserModeTime | ConvertTo-Json -Compress';
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-Command', script], { windowsHide: true, timeout: 5000 }, (err, stdout) => {
+      if (err || !stdout) return resolve([]);
+      try {
+        const parsed = JSON.parse(stdout);
+        const rows = Array.isArray(parsed) ? parsed : [parsed];
+        resolve(rows.map((row) => ({
+          pid: Number(row.ProcessId),
+          ppid: Number(row.ParentProcessId),
+          memoryBytes: Number(row.WorkingSetSize) || 0,
+          cpuTicks: (Number(row.KernelModeTime) || 0) + (Number(row.UserModeTime) || 0),
+        })).filter((row) => row.pid));
+      } catch (e) {
+        resolve([]);
+      }
+    });
+  });
+}
+
+function collectUnixProcesses() {
+  return new Promise((resolve) => {
+    execFile('ps', ['-eo', 'pid=,ppid=,rss=,time='], { timeout: 5000 }, (err, stdout) => {
+      if (err || !stdout) return resolve([]);
+      resolve(stdout.split(/\r?\n/).map((line) => {
+        const match = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(.+)$/);
+        if (!match) return null;
+        return {
+          pid: Number(match[1]),
+          ppid: Number(match[2]),
+          memoryBytes: Number(match[3]) * 1024,
+          cpuTicks: parsePsCpuTime(match[4]) * 10000000,
+        };
+      }).filter(Boolean));
+    });
+  });
+}
+
+async function sampleProcessResources(id) {
+  const proc = runningProcesses.get(id);
+  if (!proc?.pid) return;
+
+  const processes = process.platform === 'win32'
+    ? await collectWindowsProcesses()
+    : await collectUnixProcesses();
+  const tree = getDescendantProcesses(processes, proc.pid);
+  if (!tree.length) return;
+
+  const now = Date.now();
+  const cpuTicks = tree.reduce((sum, row) => sum + row.cpuTicks, 0);
+  const memoryBytes = tree.reduce((sum, row) => sum + row.memoryBytes, 0);
+  const previous = resourceSamples.get(id);
+  const elapsedMs = previous ? Math.max(1, now - previous.time) : RESOURCE_SAMPLE_MS;
+  const deltaTicks = previous ? Math.max(0, cpuTicks - previous.cpuTicks) : 0;
+  const cpuPercent = Math.min(100, (deltaTicks / (elapsedMs * 10000) / Math.max(1, os.cpus().length)) * 100);
+  const sample = {
+    id,
+    pid: proc.pid,
+    cpu: Number(cpuPercent.toFixed(1)),
+    memoryMb: Number((memoryBytes / 1024 / 1024).toFixed(1)),
+    processCount: tree.length,
+    time: now,
+  };
+
+  if (!runningProcesses.has(id)) return;
+  resourceSamples.set(id, { time: now, cpuTicks });
+  mainWindow?.webContents.send('process-resource', sample);
+}
+
+function startResourceSampler(id) {
+  stopResourceSampler(id);
+  sampleProcessResources(id);
+  resourceSampleTimers.set(id, setInterval(() => sampleProcessResources(id), RESOURCE_SAMPLE_MS));
+}
+
 ipcMain.handle('detect-project', async (_, folderPath) => {
   try {
     const validation = validateProjectPath(folderPath);
@@ -375,6 +602,7 @@ ipcMain.handle('launch-project', async (_, { id, command, cwd, env: projectEnv }
     });
 
     runningProcesses.set(id, proc);
+    startResourceSampler(id);
 
     proc.stdout.on('data', (data) => {
       mainWindow?.webContents.send('process-output', { id, data: data.toString(), type: 'stdout' });
@@ -386,16 +614,18 @@ ipcMain.handle('launch-project', async (_, { id, command, cwd, env: projectEnv }
 
     proc.on('exit', (code) => {
       runningProcesses.delete(id);
+      stopResourceSampler(id);
       mainWindow?.webContents.send('process-exit', { id, code });
     });
 
     proc.on('error', (err) => {
       runningProcesses.delete(id);
+      stopResourceSampler(id);
       mainWindow?.webContents.send('process-output', { id, data: `Error: ${err.message}\n`, type: 'stderr' });
       mainWindow?.webContents.send('process-exit', { id, code: 1 });
     });
 
-    return { success: true, command: launch.command };
+    return { success: true, command: launch.command, pid: proc.pid };
   } catch(e) {
     return { success: false, error: e.message };
   }
@@ -407,6 +637,7 @@ ipcMain.handle('stop-project', async (_, id) => {
       const proc = runningProcesses.get(id);
       await terminateProcessTree(proc);
       runningProcesses.delete(id);
+      stopResourceSampler(id);
       return true;
     } catch(e) { return false; }
   }

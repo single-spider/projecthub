@@ -302,6 +302,21 @@
     overflow: hidden;
     text-overflow: ellipsis;
   }
+  .card-resource {
+    display: none; gap: 8px; margin: -4px 0 12px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-secondary);
+  }
+  .project-card.running .card-resource,
+  .project-card.starting .card-resource,
+  .project-card.stopping .card-resource { display: flex; }
+  .card-resource span {
+    min-width: 0;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 6px;
+    padding: 4px 6px;
+  }
 
   .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
   .card-tag {
@@ -363,6 +378,21 @@
     background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: 6px; padding: 3px 8px;
   }
+  .output-actions {
+    margin-left: auto; display: flex; gap: 8px; align-items: center;
+  }
+  .output-action-btn {
+    min-width: 74px; padding: 7px 10px; border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg); color: var(--text-secondary);
+    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .output-action-btn:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .output-action-btn.run { color: var(--accent-green); border-color: rgba(74,222,128,0.28); background: rgba(74,222,128,0.12); }
+  .output-action-btn.stop { color: var(--accent-3); border-color: rgba(251,113,133,0.28); background: rgba(251,113,133,0.12); }
+  .output-action-btn.restart { color: var(--accent-orange); border-color: rgba(251,146,60,0.28); background: rgba(251,146,60,0.12); }
+  .output-action-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 
   .output-project-tabs {
     display: flex; gap: 6px; overflow-x: auto; padding: 10px 24px;
@@ -380,9 +410,69 @@
   .output-tab.active { background: rgba(167,139,250,0.2); color: var(--accent-1); border-color: rgba(167,139,250,0.3); }
   .output-tab .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-green); animation: pulse 2s infinite; }
 
+  .output-body {
+    flex: 1; min-height: 0; display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 14px; padding: 14px 18px;
+    overflow: hidden;
+  }
+  .output-inspector {
+    min-height: 0; display: flex; flex-direction: column; gap: 12px;
+    overflow-y: auto; padding-right: 4px;
+  }
+  .output-inspector::-webkit-scrollbar { width: 5px; }
+  .output-inspector::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  .resource-summary {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  }
+  .resource-tile,
+  .run-detail-panel,
+  .chart-panel {
+    background: rgba(255,255,255,0.045);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+  }
+  .resource-tile { padding: 10px; min-height: 66px; }
+  .resource-label {
+    font-size: 10px; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px;
+  }
+  .resource-value { font-size: 19px; font-weight: 800; color: var(--text-primary); }
+  .resource-sub { font-size: 11px; color: var(--text-secondary); margin-top: 3px; }
+  .chart-panel { padding: 10px; }
+  .chart-title {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;
+  }
+  .resource-chart {
+    width: 100%; height: 88px; display: block;
+    background: rgba(0,0,0,0.18); border-radius: 6px;
+  }
+  .run-detail-panel { padding: 10px; }
+  .run-detail-row {
+    display: grid; grid-template-columns: 82px minmax(0, 1fr);
+    gap: 8px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 12px;
+  }
+  .run-detail-row:last-child { border-bottom: 0; }
+  .run-detail-key { color: var(--text-muted); }
+  .run-detail-value {
+    color: var(--text-secondary); min-width: 0;
+    overflow-wrap: anywhere; font-family: 'JetBrains Mono', monospace;
+  }
+  .output-console {
+    min-height: 0; display: flex; flex-direction: column;
+    border: 1px solid var(--glass-border); border-radius: 8px;
+    overflow: hidden; background: rgba(0,0,0,0.18);
+  }
+  .output-console-title {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid var(--glass-border);
+    color: var(--text-secondary); font-size: 12px; font-weight: 700;
+  }
   #output-container {
     flex: 1; overflow-y: auto;
-    padding: 16px 24px;
+    padding: 14px 16px;
     font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
     line-height: 1.7; color: rgba(255,255,255,0.8);
     background: rgba(0,0,0,0.2);
@@ -411,6 +501,11 @@
     cursor: pointer; font-size: 12px; transition: all 0.15s;
   }
   .send-btn:hover { background: rgba(74,222,128,0.3); }
+  @media (max-width: 980px) {
+    .output-body { grid-template-columns: 1fr; overflow-y: auto; }
+    .output-inspector { overflow: visible; padding-right: 0; }
+    .output-console { min-height: 420px; }
+  }
 
   /* ── Terminal view ── */
   #view-terminal { padding: 0; }
@@ -419,6 +514,77 @@
     display: flex; align-items: center; gap: 8px; padding: 10px 16px;
     border-bottom: 1px solid var(--glass-border); background: rgba(255,255,255,0.03); flex-shrink: 0;
   }
+  .terminal-workspace {
+    flex: 1; min-height: 0; display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  }
+  .terminal-side {
+    min-height: 0; display: flex; flex-direction: column;
+    border-right: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.025);
+  }
+  .terminal-side-header {
+    padding: 12px 14px; border-bottom: 1px solid var(--glass-border);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .terminal-side-title {
+    flex: 1; min-width: 0; font-size: 13px; font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .terminal-refresh {
+    width: 28px; height: 28px; border-radius: 7px;
+    border: 1px solid var(--glass-border); background: var(--glass-bg);
+    color: var(--text-secondary); cursor: pointer;
+  }
+  .terminal-refresh:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .terminal-context-tabs {
+    display: flex; gap: 6px; padding: 10px 12px;
+    border-bottom: 1px solid var(--glass-border);
+  }
+  .terminal-context-tab {
+    flex: 1; padding: 6px 7px; border-radius: 7px;
+    border: 1px solid var(--glass-border); background: var(--glass-bg);
+    color: var(--text-secondary); cursor: pointer;
+    font-size: 11px; font-weight: 700;
+  }
+  .terminal-context-tab.active {
+    color: var(--accent-2); border-color: rgba(56,189,248,0.3);
+    background: rgba(56,189,248,0.13);
+  }
+  .terminal-side-body {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px;
+  }
+  .terminal-side-body::-webkit-scrollbar { width: 5px; }
+  .terminal-side-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+  .terminal-main {
+    min-width: 0; min-height: 0; display: flex; flex-direction: column;
+  }
+  .tree-row {
+    display: flex; align-items: center; gap: 6px;
+    padding: 4px 6px; border-radius: 6px; cursor: pointer;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .tree-row:hover, .tree-row.active { background: var(--glass-hover); color: var(--text-primary); }
+  .tree-row.dir { color: var(--accent-orange); cursor: default; }
+  .tree-indent { display: inline-block; flex: 0 0 auto; }
+  .preview-code, .git-output, .context-list {
+    white-space: pre-wrap; overflow-wrap: anywhere;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.55;
+    color: rgba(255,255,255,0.78);
+  }
+  .preview-empty, .terminal-panel-empty {
+    color: var(--text-muted); font-size: 12px; line-height: 1.5;
+    padding: 8px 4px;
+  }
+  .context-chip {
+    display: block; width: 100%; text-align: left;
+    border: 1px solid var(--glass-border); background: var(--glass-bg);
+    color: var(--text-secondary); border-radius: 7px;
+    padding: 7px 9px; margin-bottom: 7px; cursor: pointer;
+    font-size: 12px;
+  }
+  .context-chip:hover { background: var(--glass-hover); color: var(--text-primary); }
   .term-tab {
     display: flex; align-items: center; gap: 6px; padding: 5px 10px;
     border-radius: 7px; background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -454,6 +620,11 @@
   .term-line { margin-bottom: 1px; }
   .term-line.cmd { color: var(--accent-2); }
   .term-line.err { color: var(--accent-3); }
+  @media (max-width: 980px) {
+    .terminal-workspace { grid-template-columns: 1fr; overflow-y: auto; }
+    .terminal-side { min-height: 300px; border-right: 0; border-bottom: 1px solid var(--glass-border); }
+    .terminal-main { min-height: 430px; }
+  }
 
   /* ── Modal / drawer ── */
   .modal-overlay {
@@ -677,13 +848,58 @@
           <span style="font-size:18px">▶</span>
           <h2>Process Output</h2>
           <span class="project-label" id="output-current-label">No project selected</span>
-          <div style="margin-left:auto;display:flex;gap:8px">
+          <div class="output-actions">
+            <button class="output-action-btn run" id="output-run-btn" onclick="runCurrentOutputProject()">Run</button>
+            <button class="output-action-btn stop" id="output-stop-btn" onclick="stopCurrentOutputProject()">Stop</button>
+            <button class="output-action-btn restart" id="output-restart-btn" onclick="restartCurrentOutputProject()">Restart</button>
             <button class="sort-btn" onclick="clearOutput()" title="Clear">🗑 Clear</button>
           </div>
         </div>
         <div class="output-project-tabs" id="output-tabs"></div>
-        <div id="output-container">
+        <div class="output-body">
+          <div class="output-inspector">
+            <div class="resource-summary">
+              <div class="resource-tile">
+                <div class="resource-label">CPU</div>
+                <div class="resource-value" id="resource-cpu">--</div>
+                <div class="resource-sub" id="resource-cpu-sub">Waiting for samples</div>
+              </div>
+              <div class="resource-tile">
+                <div class="resource-label">Memory</div>
+                <div class="resource-value" id="resource-memory">--</div>
+                <div class="resource-sub" id="resource-memory-sub">Process tree</div>
+              </div>
+              <div class="resource-tile">
+                <div class="resource-label">PID</div>
+                <div class="resource-value" id="resource-pid">--</div>
+                <div class="resource-sub" id="resource-procs">No active process</div>
+              </div>
+              <div class="resource-tile">
+                <div class="resource-label">Runtime</div>
+                <div class="resource-value" id="resource-runtime">--</div>
+                <div class="resource-sub" id="resource-state">Idle</div>
+              </div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-title"><span>CPU history</span><span id="cpu-chart-max">0%</span></div>
+              <svg class="resource-chart" id="cpu-chart" viewBox="0 0 320 88" preserveAspectRatio="none"></svg>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-title"><span>Memory history</span><span id="memory-chart-max">0 MB</span></div>
+              <svg class="resource-chart" id="memory-chart" viewBox="0 0 320 88" preserveAspectRatio="none"></svg>
+            </div>
+            <div class="run-detail-panel" id="run-details"></div>
+          </div>
+          <div class="output-console">
+            <div class="output-console-title">
+              <span>Console output</span>
+              <span id="output-line-count">0 lines</span>
+            </div>
+            <div id="output-container">
           <div class="out-line system">— Select a running project to see output —</div>
+        </div>
+            </div>
+          </div>
         </div>
         <div class="output-input-bar">
           <span class="output-prompt">›</span>
@@ -698,15 +914,32 @@
           <div class="term-toolbar">
             <div id="term-tabs-container" style="display:flex;gap:6px;flex:1;overflow-x:auto"></div>
             <button class="new-term-btn" onclick="newTerminal()" title="New Terminal">＋</button>
-            <select id="term-project-cwd" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:7px;padding:5px 8px;color:var(--text-secondary);font-size:12px;outline:none;cursor:pointer">
+            <select id="term-project-cwd" onchange="handleTerminalProjectChange()" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:7px;padding:5px 8px;color:var(--text-secondary);font-size:12px;outline:none;cursor:pointer">
               <option value="">~ Home</option>
             </select>
           </div>
-          <div class="terminal-area" id="terminal-output"></div>
-          <div class="term-input-wrap">
+          <div class="terminal-workspace">
+            <div class="terminal-side">
+              <div class="terminal-side-header">
+                <div class="terminal-side-title" id="terminal-context-title">Project Context</div>
+                <button class="terminal-refresh" onclick="refreshTerminalContext()" title="Refresh">↻</button>
+              </div>
+              <div class="terminal-context-tabs">
+                <button class="terminal-context-tab active" data-term-panel="tree" onclick="setTerminalPanel('tree')">Tree</button>
+                <button class="terminal-context-tab" data-term-panel="preview" onclick="setTerminalPanel('preview')">Preview</button>
+                <button class="terminal-context-tab" data-term-panel="git" onclick="setTerminalPanel('git')">Git</button>
+                <button class="terminal-context-tab" data-term-panel="context" onclick="setTerminalPanel('context')">Context</button>
+              </div>
+              <div class="terminal-side-body" id="terminal-side-body"></div>
+            </div>
+            <div class="terminal-main">
+              <div class="terminal-area" id="terminal-output"></div>
+              <div class="term-input-wrap">
             <span class="term-cwd" id="term-cwd-display">~</span>
             <span class="term-sep">❯</span>
             <input class="term-input" id="termInput" placeholder="Type command…" onkeydown="handleTermInput(event)" autocomplete="off" spellcheck="false"/>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -817,6 +1050,7 @@ let projectStates = {};
 let processMeta = {};
 let processLogSaveTimer = null;
 let processOutputs = {};   // id → lines[]
+let processResources = {};
 let currentOutputId = null;
 let currentLayout = 'grid';
 let activeTypeFilter = null;
@@ -828,6 +1062,12 @@ let termHistoryIdx = -1;
 let activeTerm = null;
 let terms = [];
 let termOutputs = {};  // id → html string
+let terminalProjectPath = '';
+let terminalPanel = 'tree';
+let terminalTree = [];
+let terminalSelectedFile = '';
+let terminalPreview = null;
+let terminalGitInfo = null;
 
 const COLORS = {
   purple: { bg:'rgba(167,139,250,0.15)', border:'rgba(167,139,250,0.3)', icon:'linear-gradient(135deg,#a78bfa,#7c3aed)', text:'#a78bfa' },
@@ -849,8 +1089,10 @@ async function init() {
   loadSavedProcessLogs(await window.api.getProcessLogs());
   renderAll();
   updateBadges();
+  updateOutputControls();
   buildFilters();
   buildTermProjectOptions();
+  await refreshTerminalContext();
   newTerminal();
 
   window.api.onProcessOutput(({ id, data, type }) => {
@@ -863,10 +1105,19 @@ async function init() {
   window.api.onProcessExit(({ id, code }) => {
     const stateBeforeExit = getProjectState(id);
     setProjectState(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
+    finishCurrentRun(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
+    clearProcessResource(id);
     setLastRun(id, code === 0 || stateBeforeExit === 'stopping' ? 'success' : 'failed', code);
     rememberProcessOutput(id, `\n[Process exited with code ${code}]\n`, 'system');
     if (currentOutputId === id) appendOutput(`\n[Process exited with code ${code}]\n`, 'system');
+    if (currentOutputId === id) renderOutputDetails(id);
     renderAll();
+  });
+
+  window.api.onProcessResource((sample) => {
+    rememberProcessResource(sample);
+    updateProjectResourceBadge(sample.id);
+    if (currentOutputId === sample.id) renderOutputDetails(sample.id);
   });
 
   window.api.onTerminalData(({ id, data }) => {
@@ -877,6 +1128,7 @@ async function init() {
 
   document.addEventListener('click', () => hideContextMenu());
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+  setInterval(() => { if (currentOutputId) renderOutputDetails(currentOutputId); }, 1000);
 }
 
 // ─── Project helpers ──────────────────────────────────────────────────────────
@@ -940,6 +1192,43 @@ function rememberProcessOutput(id, data, type) {
     processOutputs[id] = processOutputs[id].slice(-MAX_PROCESS_LOG_ENTRIES);
   }
   scheduleProcessLogSave();
+}
+
+function rememberProcessResource(sample) {
+  if (!sample?.id) return;
+  const existing = processResources[sample.id] || { history: [] };
+  existing.current = sample;
+  existing.history = [...(existing.history || []), sample].slice(-90);
+  processResources[sample.id] = existing;
+}
+
+function setCurrentRun(id, details) {
+  processMeta[id] = { ...(processMeta[id] || {}), currentRun: details };
+  scheduleProcessLogSave();
+}
+
+function finishCurrentRun(id, status) {
+  const currentRun = processMeta[id]?.currentRun;
+  if (!currentRun || currentRun.endedAt) return;
+  processMeta[id] = {
+    ...(processMeta[id] || {}),
+    currentRun: { ...currentRun, status, endedAt: Date.now() },
+  };
+  scheduleProcessLogSave();
+}
+
+function clearCurrentRun(id) {
+  if (!processMeta[id]?.currentRun) return;
+  processMeta[id] = { ...(processMeta[id] || {}), currentRun: null };
+  scheduleProcessLogSave();
+}
+
+function clearProcessResource(id) {
+  if (!processResources[id]) return;
+  processResources[id] = {
+    ...processResources[id],
+    current: null,
+  };
 }
 
 function setLastRun(id, status, code) {
@@ -1024,6 +1313,7 @@ function renderGrid(list) {
       </div>
       <div class="card-desc">${escHtml(p.desc || 'No description')}</div>
       ${lastRun ? `<div class="card-last-run">${escHtml(lastRun)}</div>` : ''}
+      <div class="card-resource" data-resource-id="${p.id}">${renderCardResource(p.id)}</div>
       ${tags ? `<div class="card-tags">${tags}</div>` : ''}
       <div class="card-actions">
         ${isRunning
@@ -1075,10 +1365,154 @@ function setProjectState(id, state) {
   updateProjectCardStatus(id);
   updateBadges();
   updateOutputTabs();
+  if (currentOutputId === id) updateOutputControls();
 }
 
 function getStateLabel(state) {
   return ({ starting: 'Starting', running: 'Running', stopping: 'Stopping', failed: 'Failed', stopped: 'Idle' })[state] || 'Idle';
+}
+
+function renderCardResource(id) {
+  const sample = processResources[id]?.current;
+  if (!sample) return '<span>CPU --</span><span>RAM --</span>';
+  return `<span>CPU ${formatCpu(sample.cpu)}</span><span>RAM ${formatMemory(sample.memoryMb)}</span>`;
+}
+
+function updateProjectResourceBadge(id) {
+  const el = document.querySelector(`.card-resource[data-resource-id="${id}"]`);
+  if (el) el.innerHTML = renderCardResource(id);
+}
+
+function formatCpu(value) {
+  return Number.isFinite(Number(value)) ? `${Number(value).toFixed(1)}%` : '--';
+}
+
+function formatMemory(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '--';
+  if (n >= 1024) return `${(n / 1024).toFixed(1)} GB`;
+  return `${n.toFixed(1)} MB`;
+}
+
+function formatRuntime(startedAt, now=Date.now()) {
+  if (!startedAt) return '--';
+  const seconds = Math.max(0, Math.floor((now - startedAt) / 1000));
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  if (h) return `${h}h ${m}m`;
+  if (m) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+function renderSparkline(id, metric, color, fillColor, maxLabelId) {
+  const svg = document.getElementById(`${metric}-chart`);
+  if (!svg) return;
+  const history = processResources[id]?.history || [];
+  const values = history.map(sample => Number(metric === 'cpu' ? sample.cpu : sample.memoryMb)).filter(Number.isFinite);
+  const max = Math.max(metric === 'cpu' ? 10 : 16, ...values);
+  const width = 320;
+  const height = 88;
+  const pad = 8;
+
+  document.getElementById(maxLabelId).textContent = metric === 'cpu'
+    ? `${Math.ceil(max)}%`
+    : formatMemory(max);
+
+  if (values.length < 2) {
+    svg.innerHTML = `<line x1="8" y1="80" x2="312" y2="80" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
+    return;
+  }
+
+  const points = values.map((value, index) => {
+    const x = pad + (index / Math.max(1, values.length - 1)) * (width - pad * 2);
+    const y = height - pad - (value / max) * (height - pad * 2);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const area = `8,80 ${points} 312,80`;
+
+  svg.innerHTML = `
+    <polyline points="${area}" fill="${fillColor}" stroke="none"></polyline>
+    <polyline points="${points}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></polyline>
+    <line x1="8" y1="80" x2="312" y2="80" stroke="rgba(255,255,255,0.12)" stroke-width="1"></line>`;
+}
+
+function renderRunDetails(id) {
+  const project = projects.find(p => p.id === id);
+  const run = processMeta[id]?.currentRun;
+  const sample = processResources[id]?.current;
+  const rows = [
+    ['Project', project?.name || id || 'None'],
+    ['State', run?.status ? getStateLabel(run.status) : getStateLabel(getProjectState(id))],
+    ['Started', run?.startedAt ? new Date(run.startedAt).toLocaleString() : '--'],
+    ['Ended', run?.endedAt ? new Date(run.endedAt).toLocaleString() : '--'],
+    ['Command', run?.command || project?.command || '--'],
+    ['Preset', run?.label || '--'],
+    ['Path', run?.cwd || project?.path || '--'],
+    ['PID', sample?.pid || run?.pid || '--'],
+    ['Processes', sample?.processCount || '--'],
+  ];
+
+  const el = document.getElementById('run-details');
+  if (!el) return;
+  el.innerHTML = rows.map(([key, value]) => `
+    <div class="run-detail-row">
+      <div class="run-detail-key">${escHtml(key)}</div>
+      <div class="run-detail-value">${escHtml(value)}</div>
+    </div>`).join('');
+}
+
+function updateLineCount(id) {
+  const count = (processOutputs[id] || []).reduce((sum, entry) => {
+    return sum + String(entry.data || '').split('\n').filter(Boolean).length;
+  }, 0);
+  const el = document.getElementById('output-line-count');
+  if (el) el.textContent = `${count} line${count === 1 ? '' : 's'}`;
+}
+
+function renderOutputDetails(id) {
+  const sample = processResources[id]?.current;
+  const run = processMeta[id]?.currentRun;
+  const runtimeEnd = run?.endedAt || Date.now();
+  document.getElementById('resource-cpu').textContent = sample ? formatCpu(sample.cpu) : '--';
+  document.getElementById('resource-memory').textContent = sample ? formatMemory(sample.memoryMb) : '--';
+  document.getElementById('resource-pid').textContent = sample?.pid || run?.pid || '--';
+  document.getElementById('resource-procs').textContent = sample ? `${sample.processCount} process${sample.processCount === 1 ? '' : 'es'}` : 'No active process';
+  document.getElementById('resource-runtime').textContent = formatRuntime(run?.startedAt, runtimeEnd);
+  document.getElementById('resource-state').textContent = run?.status ? getStateLabel(run.status) : getStateLabel(getProjectState(id));
+  document.getElementById('resource-cpu-sub').textContent = sample ? `Updated ${new Date(sample.time).toLocaleTimeString()}` : 'Waiting for samples';
+  document.getElementById('resource-memory-sub').textContent = sample ? 'Process tree total' : 'Process tree';
+  renderSparkline(id, 'cpu', '#4ade80', 'rgba(74,222,128,0.12)', 'cpu-chart-max');
+  renderSparkline(id, 'memory', '#38bdf8', 'rgba(56,189,248,0.12)', 'memory-chart-max');
+  renderRunDetails(id);
+  updateLineCount(id);
+  updateOutputControls();
+}
+
+function updateOutputControls() {
+  const hasProject = Boolean(currentOutputId && projects.find(p => p.id === currentOutputId));
+  const state = hasProject ? getProjectState(currentOutputId) : 'stopped';
+  const busy = state === 'starting' || state === 'stopping';
+  const active = state === 'running' || state === 'starting' || state === 'stopping';
+  const runBtn = document.getElementById('output-run-btn');
+  const stopBtn = document.getElementById('output-stop-btn');
+  const restartBtn = document.getElementById('output-restart-btn');
+
+  if (runBtn) runBtn.disabled = !hasProject || active;
+  if (stopBtn) stopBtn.disabled = !hasProject || !active || busy;
+  if (restartBtn) restartBtn.disabled = !hasProject || !active || busy;
+}
+
+function runCurrentOutputProject() {
+  if (currentOutputId) runProject(currentOutputId);
+}
+
+function stopCurrentOutputProject() {
+  if (currentOutputId) stopProject(currentOutputId);
+}
+
+function restartCurrentOutputProject() {
+  if (currentOutputId) restartProject(currentOutputId);
 }
 
 function renderProjectActions(id, state) {
@@ -1119,6 +1553,7 @@ function updateProjectCardStatus(id, running) {
   if (state !== 'stopped') card.classList.add(state);
   const statusEl = card.querySelector('.card-status');
   if (statusEl) { statusEl.className = `card-status ${state}`; statusEl.innerHTML = `<div class="status-dot"></div>${getStateLabel(state)}`; }
+  updateProjectResourceBadge(id);
   const actions = card.querySelector('.card-actions');
   if (actions) {
     actions.innerHTML = `
@@ -1182,6 +1617,7 @@ async function runProject(id) {
   const res = await window.api.launchProject({ id, command, cwd: p.path, env: p.env || {} });
   if (res.success) {
     setProjectState(id, 'running');
+    setCurrentRun(id, { command, label, cwd: p.path, pid: res.pid || null, startedAt: Date.now() });
     setLastRun(id, 'running', null);
     rememberProcessOutput(id, `[Started: ${p.name}${label ? ` / ${label}` : ''}]\n$ ${command}\n`, 'system');
     toast(`▶ ${p.name} started`, 'success');
@@ -1206,9 +1642,12 @@ async function stopProject(id) {
   setProjectState(id, 'stopping');
   await window.api.stopProject(id);
   setProjectState(id, 'stopped');
+  finishCurrentRun(id, 'stopped');
+  clearProcessResource(id);
   setLastRun(id, 'stopped', null);
   const p = projects.find(x => x.id === id);
   toast(`⏹ ${p?.name || 'Project'} stopped`, 'info');
+  if (currentOutputId === id) renderOutputDetails(id);
   renderAll();
 }
 
@@ -1264,6 +1703,7 @@ function setOutputProject(id) {
   (processOutputs[id] || []).forEach(({ data, type, time }) => appendOutput(data, type, false, time));
   container.scrollTop = container.scrollHeight;
   updateOutputTabs();
+  renderOutputDetails(id);
 }
 
 function appendOutput(data, type, scroll=true, time=Date.now()) {
@@ -1277,16 +1717,19 @@ function appendOutput(data, type, scroll=true, time=Date.now()) {
     container.appendChild(div);
   });
   if (scroll) container.scrollTop = container.scrollHeight;
+  if (currentOutputId) updateLineCount(currentOutputId);
 }
 
 function clearOutput() {
   if (currentOutputId) {
     processOutputs[currentOutputId] = [];
-    delete processMeta[currentOutputId];
+    const currentRun = processMeta[currentOutputId]?.currentRun || null;
+    processMeta[currentOutputId] = currentRun ? { currentRun } : {};
     window.api.clearProcessLog(currentOutputId);
     renderAll();
   }
   document.getElementById('output-container').innerHTML = '';
+  if (currentOutputId) renderOutputDetails(currentOutputId);
 }
 
 function handleOutputInput(e) {
@@ -1310,6 +1753,11 @@ function newTerminal(cwd) {
 
   const cwdInput = document.getElementById('term-project-cwd');
   const selectedCwd = cwd || cwdInput.value || '';
+  if (cwd) {
+    cwdInput.value = cwd;
+    terminalProjectPath = cwd;
+    refreshTerminalContext();
+  }
 
   window.api.terminalCreate(id, selectedCwd || undefined);
   activeTerm = id;
@@ -1332,6 +1780,157 @@ function switchTerm(id) {
   renderTermTabs();
   document.getElementById('terminal-output').innerHTML = termOutputs[id] || '';
   document.getElementById('terminal-output').scrollTop = 9999;
+}
+
+function getTerminalProject() {
+  return projects.find(p => p.path === terminalProjectPath);
+}
+
+async function handleTerminalProjectChange() {
+  const sel = document.getElementById('term-project-cwd');
+  terminalProjectPath = sel.value || '';
+  terminalSelectedFile = '';
+  terminalPreview = null;
+  terminalGitInfo = null;
+  await refreshTerminalContext();
+}
+
+async function refreshTerminalContext() {
+  const title = document.getElementById('terminal-context-title');
+  const project = getTerminalProject();
+  title.textContent = project?.name || (terminalProjectPath ? shortenPath(terminalProjectPath) : 'Project Context');
+
+  if (!terminalProjectPath) {
+    terminalTree = [];
+    terminalPreview = null;
+    terminalGitInfo = null;
+    renderTerminalPanel();
+    return;
+  }
+
+  const treeRes = await window.api.terminalListProjectFiles(terminalProjectPath);
+  terminalTree = treeRes?.success ? treeRes.files : [];
+
+  if (terminalPanel === 'git') {
+    terminalGitInfo = await window.api.terminalGitInfo(terminalProjectPath);
+  }
+
+  renderTerminalPanel(treeRes?.truncated);
+}
+
+function setTerminalPanel(panel) {
+  terminalPanel = panel;
+  document.querySelectorAll('.terminal-context-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.termPanel === panel);
+  });
+  if (panel === 'git' && terminalProjectPath && !terminalGitInfo) {
+    window.api.terminalGitInfo(terminalProjectPath).then((info) => {
+      terminalGitInfo = info;
+      if (terminalPanel === 'git') renderTerminalPanel();
+    });
+  }
+  renderTerminalPanel();
+}
+
+function renderTerminalPanel(truncated=false) {
+  const body = document.getElementById('terminal-side-body');
+  if (!body) return;
+
+  if (!terminalProjectPath) {
+    body.innerHTML = '<div class="terminal-panel-empty">Choose a project folder from the terminal toolbar to load tree, preview, git, and context helpers.</div>';
+    return;
+  }
+
+  if (terminalPanel === 'tree') {
+    renderTerminalTree(body, truncated);
+  } else if (terminalPanel === 'preview') {
+    renderTerminalPreview(body);
+  } else if (terminalPanel === 'git') {
+    renderTerminalGit(body);
+  } else {
+    renderTerminalContext(body);
+  }
+}
+
+function renderTerminalTree(body, truncated=false) {
+  if (!terminalTree.length) {
+    body.innerHTML = '<div class="terminal-panel-empty">No project files found.</div>';
+    return;
+  }
+
+  const rows = terminalTree.map(file => {
+    const isFile = file.type === 'file';
+    const active = terminalSelectedFile === file.path ? ' active' : '';
+    const click = isFile ? `onclick="previewTerminalFile('${escJs(file.path)}')"` : '';
+    const indent = Math.max(0, Number(file.depth) || 0) * 14;
+    return `<div class="tree-row ${file.type}${active}" ${click}>
+      <span class="tree-indent" style="width:${indent}px"></span>
+      <span>${file.type === 'dir' ? '▸' : '·'}</span>
+      <span>${escHtml(file.name)}</span>
+    </div>`;
+  }).join('');
+
+  body.innerHTML = rows + (truncated ? '<div class="terminal-panel-empty">Tree truncated to keep the UI responsive.</div>' : '');
+}
+
+async function previewTerminalFile(relativePath) {
+  terminalSelectedFile = relativePath;
+  terminalPanel = 'preview';
+  document.querySelectorAll('.terminal-context-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.termPanel === 'preview');
+  });
+  terminalPreview = { loading: true, path: relativePath };
+  renderTerminalPanel();
+  terminalPreview = await window.api.terminalReadProjectFile(terminalProjectPath, relativePath);
+  renderTerminalPanel();
+}
+
+function renderTerminalPreview(body) {
+  if (!terminalSelectedFile) {
+    body.innerHTML = '<div class="preview-empty">Select a file in Tree to preview it here.</div>';
+    return;
+  }
+  if (terminalPreview?.loading) {
+    body.innerHTML = `<div class="preview-empty">Loading ${escHtml(terminalSelectedFile)}...</div>`;
+    return;
+  }
+  if (!terminalPreview?.success) {
+    body.innerHTML = `<div class="preview-empty">${escHtml(terminalPreview?.error || 'Preview unavailable.')}</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="preview-empty">${escHtml(terminalPreview.path)} · ${terminalPreview.size} bytes</div>
+    <pre class="preview-code">${escHtml(terminalPreview.text)}</pre>`;
+}
+
+function renderTerminalGit(body) {
+  if (!terminalGitInfo) {
+    body.innerHTML = '<div class="terminal-panel-empty">Loading git status...</div>';
+    return;
+  }
+  if (!terminalGitInfo.success) {
+    body.innerHTML = `<div class="terminal-panel-empty">${escHtml(terminalGitInfo.error || 'Git info unavailable.')}</div>`;
+    return;
+  }
+  body.innerHTML = `<div class="preview-empty">Status</div>
+    <pre class="git-output">${escHtml(terminalGitInfo.status || 'Clean working tree')}</pre>
+    <div class="preview-empty">Recent commits</div>
+    <pre class="git-output">${escHtml(terminalGitInfo.log || 'No commits found')}</pre>`;
+}
+
+function renderTerminalContext(body) {
+  const wanted = ['AGENTS.md', 'README.md', 'docs/HANDOVER.md', 'docs/ROADMAP.md', 'package.json', '.env'];
+  const matches = wanted
+    .map(name => terminalTree.find(file => file.type === 'file' && file.path.replace(/\\/g, '/') === name))
+    .filter(Boolean);
+
+  if (!matches.length) {
+    body.innerHTML = '<div class="terminal-panel-empty">No common context files found yet.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="context-list">${
+    matches.map(file => `<button class="context-chip" onclick="previewTerminalFile('${escJs(file.path)}')">${escHtml(file.path)}</button>`).join('')
+  }</div>`;
 }
 
 function closeTerminal(id) {
@@ -1379,8 +1978,14 @@ async function handleTermInput(e) {
 
 function buildTermProjectOptions() {
   const sel = document.getElementById('term-project-cwd');
+  const previous = sel.value || terminalProjectPath;
   const extras = projects.filter(p => p.path).map(p => `<option value="${escAttr(p.path)}">${escHtml(p.name)}</option>`).join('');
   sel.innerHTML = '<option value="">~ Home</option>' + extras;
+  if (previous && projects.some(p => p.path === previous)) {
+    sel.value = previous;
+    terminalProjectPath = previous;
+  }
+  refreshTerminalContext();
 }
 
 // ─── Modal ────────────────────────────────────────────────────────────────────
@@ -1673,6 +2278,7 @@ function escHtml(s) {
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 function escAttr(s) { return String(s).replace(/"/g,'&quot;'); }
+function escJs(s) { return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\r/g,'\\r').replace(/\n/g,'\\n'); }
 
 function shortenPath(p) {
   if (!p) return '';

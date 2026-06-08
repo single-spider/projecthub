@@ -25,14 +25,18 @@ contextBridge.exposeInMainWorld('api', {
   terminalCreate: (id, cwd) => ipcRenderer.invoke('terminal-create', { id, cwd }),
   terminalWrite: (id, data) => ipcRenderer.invoke('terminal-write', { id, data }),
   terminalKill: (id) => ipcRenderer.invoke('terminal-kill', id),
+  terminalListProjectFiles: (rootPath) => ipcRenderer.invoke('terminal-list-project-files', rootPath),
+  terminalReadProjectFile: (rootPath, relativePath) => ipcRenderer.invoke('terminal-read-project-file', { rootPath, relativePath }),
+  terminalGitInfo: (rootPath) => ipcRenderer.invoke('terminal-git-info', rootPath),
 
   // Events
   onProcessOutput: (cb) => { ipcRenderer.on('process-output', (_, d) => cb(d)); },
   onProcessExit: (cb) => { ipcRenderer.on('process-exit', (_, d) => cb(d)); },
+  onProcessResource: (cb) => { ipcRenderer.on('process-resource', (_, d) => cb(d)); },
   onTerminalData: (cb) => { ipcRenderer.on('terminal-data', (_, d) => cb(d)); },
   onTerminalExit: (cb) => { ipcRenderer.on('terminal-exit', (_, d) => cb(d)); },
   offAllListeners: () => {
-    ['process-output','process-exit','terminal-data','terminal-exit'].forEach(ch => ipcRenderer.removeAllListeners(ch));
+    ['process-output','process-exit','process-resource','terminal-data','terminal-exit'].forEach(ch => ipcRenderer.removeAllListeners(ch));
   },
 
   // Window
