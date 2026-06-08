@@ -1,0 +1,34 @@
+{
+  "name": "projecthub",
+  "version": "1.0.0",
+  "description": "A beautiful glassmorphic project launcher and manager",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/launch.js",
+    "build:linux": "electron-builder --linux",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build": "electron-builder --linux"
+  },
+  "build": {
+    "appId": "com.projecthub.app",
+    "productName": "ProjectHub",
+    "files": ["src/**/*"],
+    "directories": { "output": "dist" },
+    "linux": {
+      "target": ["AppImage"],
+      "category": "Development"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.developer-tools"
+    },
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "devDependencies": {
+    "electron": "36.3.1",
+    "electron-builder": "26.0.12"
+  }
+}
