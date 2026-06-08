@@ -255,6 +255,14 @@
     border-color: rgba(74,222,128,0.35);
     box-shadow: 0 0 20px rgba(74,222,128,0.1);
   }
+  .project-card.starting, .project-card.stopping {
+    border-color: rgba(251,146,60,0.35);
+    box-shadow: 0 0 20px rgba(251,146,60,0.1);
+  }
+  .project-card.failed {
+    border-color: rgba(251,113,133,0.4);
+    box-shadow: 0 0 20px rgba(251,113,133,0.12);
+  }
 
   .card-top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 14px; }
   .card-icon {
@@ -273,9 +281,13 @@
     padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
   }
   .card-status.running { background: rgba(74,222,128,0.15); color: var(--accent-green); }
+  .card-status.starting, .card-status.stopping { background: rgba(251,146,60,0.15); color: var(--accent-orange); }
+  .card-status.failed { background: rgba(251,113,133,0.15); color: var(--accent-3); }
   .card-status.stopped { background: rgba(255,255,255,0.06); color: var(--text-muted); }
   .status-dot { width: 6px; height: 6px; border-radius: 50%; }
   .running .status-dot { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); animation: pulse 2s infinite; }
+  .starting .status-dot, .stopping .status-dot { background: var(--accent-orange); box-shadow: 0 0 6px var(--accent-orange); animation: pulse 1.2s infinite; }
+  .failed .status-dot { background: var(--accent-3); }
   .stopped .status-dot { background: var(--text-muted); }
 
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -303,6 +315,10 @@
     background: rgba(251,113,133,0.15); border: 1px solid rgba(251,113,133,0.25); color: var(--accent-3);
   }
   .card-btn.stop:hover { background: rgba(251,113,133,0.25); }
+  .card-btn.restart {
+    background: rgba(251,146,60,0.15); border: 1px solid rgba(251,146,60,0.25); color: var(--accent-orange);
+  }
+  .card-btn.restart:hover { background: rgba(251,146,60,0.25); }
   .card-btn.open {
     background: var(--glass-bg); border: 1px solid var(--glass-border); color: var(--text-secondary);
     flex: 0; padding: 8px 10px;
@@ -737,6 +753,7 @@
 
 <!-- Context Menu -->
 <div class="ctx-menu" id="ctx-menu">
+  <div class="ctx-item" onclick="ctxRestart()">Restart Project</div>
   <div class="ctx-item" onclick="ctxRun()">▶ Run Project</div>
   <div class="ctx-item" onclick="ctxViewOutput()">📋 View Output</div>
   <div class="ctx-item" onclick="ctxOpenFolder()">📁 Open Folder</div>
@@ -754,6 +771,7 @@
 let projects = [];
 let filteredProjects = [];
 let runningProjects = new Set();
+let projectStates = {};
 let processOutputs = {};   // id → lines[]
 let currentOutputId = null;
 let currentLayout = 'grid';
@@ -796,13 +814,11 @@ async function init() {
   });
 
   window.api.onProcessExit(({ id, code }) => {
-    runningProjects.delete(id);
+    const stateBeforeExit = getProjectState(id);
+    setProjectState(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
     if (!processOutputs[id]) processOutputs[id] = [];
     processOutputs[id].push({ data: `\n[Process exited with code ${code}]\n`, type: 'system', time: Date.now() });
     if (currentOutputId === id) appendOutput(`\n[Process exited with code ${code}]\n`, 'system');
-    updateProjectCardStatus(id, false);
-    updateBadges();
-    updateOutputTabs();
   });
 
   window.api.onTerminalData(({ id, data }) => {
@@ -836,6 +852,7 @@ function renderAll() {
 
   filteredProjects = list;
   renderGrid(list);
+  [...new Set([...runningProjects, ...Object.keys(projectStates)])].forEach(id => updateProjectCardStatus(id));
   updateStats();
   document.getElementById('project-count').textContent = `${list.length} of ${projects.length} project${projects.length !== 1 ? 's' : ''}`;
 }
@@ -857,12 +874,13 @@ function renderGrid(list) {
 
   grid.innerHTML = list.map((p, i) => {
     const c = COLORS[p.color || 'purple'];
-    const isRunning = runningProjects.has(p.id);
+    const state = getProjectState(p.id);
+    const isRunning = state === 'running' || state === 'starting' || state === 'stopping';
     const tags = (p.tags||[]).slice(0,3).map(t =>
       `<span class="card-tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${t}</span>`
     ).join('');
     return `
-    <div class="project-card${isRunning ? ' running' : ''}" 
+    <div class="project-card${state !== 'stopped' ? ` ${state}` : ''}" 
          data-id="${p.id}" 
          style="animation-delay:${i*0.04}s"
          onclick="handleCardClick('${p.id}')"
@@ -873,9 +891,9 @@ function renderGrid(list) {
           <div class="card-name">${escHtml(p.name)}</div>
           <div class="card-path">${p.path ? escHtml(shortenPath(p.path)) : 'No path set'}</div>
         </div>
-        <div class="card-status ${isRunning ? 'running' : 'stopped'}">
+        <div class="card-status ${state}">
           <div class="status-dot"></div>
-          ${isRunning ? 'Running' : 'Idle'}
+          ${getStateLabel(state)}
         </div>
       </div>
       <div class="card-desc">${escHtml(p.desc || 'No description')}</div>
@@ -916,14 +934,52 @@ function updateRunningBadge() {
   rb.style.display = n > 0 ? '' : 'none';
 }
 
+function getProjectState(id) {
+  return projectStates[id] || (runningProjects.has(id) ? 'running' : 'stopped');
+}
+
+function setProjectState(id, state) {
+  if (state === 'stopped') delete projectStates[id];
+  else projectStates[id] = state;
+
+  if (state === 'running' || state === 'starting' || state === 'stopping') runningProjects.add(id);
+  else runningProjects.delete(id);
+
+  updateProjectCardStatus(id);
+  updateBadges();
+  updateOutputTabs();
+}
+
+function getStateLabel(state) {
+  return ({ starting: 'Starting', running: 'Running', stopping: 'Stopping', failed: 'Failed', stopped: 'Idle' })[state] || 'Idle';
+}
+
+function renderProjectActions(id, state) {
+  if (state === 'running' || state === 'starting' || state === 'stopping') {
+    const disabled = state === 'starting' || state === 'stopping' ? ' disabled' : '';
+    return `
+        <button class="card-btn stop" onclick="event.stopPropagation();stopProject('${id}')"${disabled}>Stop</button>
+        <button class="card-btn restart" onclick="event.stopPropagation();restartProject('${id}')"${disabled}>Restart</button>`;
+  }
+
+  return `<button class="card-btn run" onclick="event.stopPropagation();runProject('${id}')">Run</button>`;
+}
+
 function updateProjectCardStatus(id, running) {
   const card = document.querySelector(`.project-card[data-id="${id}"]`);
   if (!card) return;
-  if (running) card.classList.add('running'); else card.classList.remove('running');
+  const state = running === undefined ? getProjectState(id) : (running ? 'running' : 'stopped');
+  card.classList.remove('starting', 'running', 'stopping', 'failed');
+  if (state !== 'stopped') card.classList.add(state);
   const statusEl = card.querySelector('.card-status');
-  if (statusEl) { statusEl.className = `card-status ${running ? 'running' : 'stopped'}`; statusEl.innerHTML = `<div class="status-dot"></div>${running ? 'Running' : 'Idle'}`; }
+  if (statusEl) { statusEl.className = `card-status ${state}`; statusEl.innerHTML = `<div class="status-dot"></div>${getStateLabel(state)}`; }
   const actions = card.querySelector('.card-actions');
   if (actions) {
+    actions.innerHTML = `
+        ${renderProjectActions(id, state)}
+        <button class="card-btn open" onclick="event.stopPropagation();openFolder('${id}')" title="Open Folder">Folder</button>
+        <button class="card-btn open" onclick="event.stopPropagation();editProject('${id}')" title="Edit">Edit</button>`;
+    return;
     const firstBtn = actions.querySelector('.card-btn.run, .card-btn.stop');
     if (firstBtn) {
       if (running) { firstBtn.className = 'card-btn stop'; firstBtn.innerHTML = '⏹ Stop'; firstBtn.onclick = (e) => { e.stopPropagation(); stopProject(id); }; }
@@ -961,39 +1017,55 @@ function filterProjects() { renderAll(); }
 async function runProject(id) {
   const p = projects.find(x => x.id === id);
   if (!p) return;
+  if (getProjectState(id) === 'starting') return;
   if (!p.command) { toast('Run command is required. Edit the project first.', 'error'); return; }
   if (!p.path) { toast('Project folder is required. Edit the project first.', 'error'); return; }
 
+  setProjectState(id, 'starting');
+
   const pathCheck = await window.api.validateProjectPath(p.path);
   if (!pathCheck.valid) {
+    setProjectState(id, 'failed');
     toast(pathCheck.error || 'Project folder is not valid.', 'error');
     return;
   }
 
   const res = await window.api.launchProject({ id, command: p.command, cwd: p.path });
   if (res.success) {
-    runningProjects.add(id);
+    setProjectState(id, 'running');
     if (!processOutputs[id]) processOutputs[id] = [];
     processOutputs[id].push({ data: `[Started: ${p.name}]\n$ ${p.command}\n`, type: 'system', time: Date.now() });
-    updateProjectCardStatus(id, true);
-    updateBadges();
-    updateOutputTabs();
     toast(`▶ ${p.name} started`, 'success');
     switchView('output', document.querySelector('.nav-item[data-view="output"]'));
     setOutputProject(id);
   } else {
+    setProjectState(id, 'failed');
     toast(`Failed: ${res.error}`, 'error');
   }
 }
 
 async function stopProject(id) {
+  setProjectState(id, 'stopping');
   await window.api.stopProject(id);
-  runningProjects.delete(id);
-  updateProjectCardStatus(id, false);
-  updateBadges();
+  setProjectState(id, 'stopped');
   const p = projects.find(x => x.id === id);
   toast(`⏹ ${p?.name || 'Project'} stopped`, 'info');
   renderAll();
+}
+
+async function restartProject(id) {
+  const p = projects.find(x => x.id === id);
+  if (!p) return;
+  if (getProjectState(id) === 'starting' || getProjectState(id) === 'stopping') return;
+
+  if (!processOutputs[id]) processOutputs[id] = [];
+  processOutputs[id].push({ data: `\n[Restarting: ${p.name}]\n`, type: 'system', time: Date.now() });
+  if (currentOutputId === id) appendOutput(`\n[Restarting: ${p.name}]\n`, 'system');
+
+  setProjectState(id, 'stopping');
+  await window.api.stopProject(id);
+  setProjectState(id, 'stopped');
+  await runProject(id);
 }
 
 async function openFolder(id) {
@@ -1301,6 +1373,7 @@ function showCtxMenu(e, id) {
 }
 function hideContextMenu() { document.getElementById('ctx-menu').classList.remove('open'); }
 function ctxRun() { hideContextMenu(); if(ctxTarget) runProject(ctxTarget); }
+function ctxRestart() { hideContextMenu(); if(ctxTarget) restartProject(ctxTarget); }
 function ctxViewOutput() { hideContextMenu(); if(ctxTarget){ switchView('output',document.querySelector('.nav-item[data-view="output"]')); setOutputProject(ctxTarget); } }
 function ctxOpenFolder() { hideContextMenu(); if(ctxTarget) openFolder(ctxTarget); }
 function ctxEdit() { hideContextMenu(); if(ctxTarget) editProject(ctxTarget); }

@@ -54,9 +54,9 @@ Implementation notes:
 
 Planned work:
 
-- Add a restart command.
-- Track process state as `starting`, `running`, `stopping`, `stopped`, or `failed`.
-- Improve Windows process tree cleanup.
+- [x] Add a restart command.
+- [x] Track process state as `starting`, `running`, `stopping`, `stopped`, or `failed`.
+- [x] Improve Windows process tree cleanup.
 - Handle launch failures and non-zero exits consistently.
 - Prevent duplicate launches for the same project.
 
