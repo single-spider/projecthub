@@ -15,10 +15,16 @@ Phase 1 reliability is mostly complete:
 - Recent output persists in Electron user-data via `process-logs.json`.
 - Project cards show last run status and timestamp.
 
-Phase 2 has started lightly:
+Phase 2 project configuration is now underway:
 
 - Python virtual environments are auto-detected from `.venv`, `venv`, and `env`.
 - `node_modules/.bin` is prepended to `PATH` for launched projects and project terminals.
+- Project `.env` files are loaded from the project folder and merged into launch env.
+- Per-project environment variables can be edited in the Add/Edit modal and override `.env` and inherited values.
+- Node `package.json` scripts are detected as command presets during auto-detect.
+- Projects can store command presets as `Name=command` lines.
+- Cards show a `Presets` dropdown for saved presets; selecting one launches that command through the normal project launch path.
+- Existing saved projects with no presets are hydrated from `package.json` on app startup when possible.
 
 ## Important Files
 
@@ -28,6 +34,7 @@ Phase 2 has started lightly:
 - `src/launch.js` - development launcher wrapper.
 - `docs/ROADMAP.md` - phased implementation plan.
 - `docs/FEATURE_GAPS.md` - product checklist and rationale.
+- `tests/projecthub-env-test` - manual fixture for env, preset, failure, and long-running process checks.
 
 ## Data Storage
 
@@ -45,6 +52,13 @@ Current data files:
 - `process-logs.json` - persisted recent output and last run metadata.
 
 The renderer expects `projects.json` to be an array.
+
+Project records may now include:
+
+- `env` - object of per-project environment variables.
+- `presets` - array of `{ name, command }` command presets.
+
+Existing records without these fields remain valid.
 
 ## Recently Added Registry Entry
 
@@ -89,19 +103,41 @@ npm start
 - On Windows, do not rely on `child.kill()` for project processes. Use the centralized process-tree cleanup path in `src/main.js`.
 - Project logs are capped by entry count, not byte size. Large single output chunks can still make `process-logs.json` bulky.
 - Some card action markup is updated dynamically by `updateProjectCardStatus`; when changing buttons, check both initial render and dynamic update paths.
+- The modal must remain focusable in Electron. `src/index.html` marks modal controls as `-webkit-app-region: no-drag`; if inputs stop accepting typing, check drag-region CSS and overlays first.
+- Raw `npm start` from a shell does not load fixture `.env`; ProjectHub's main process is responsible for loading `.env` into launched projects.
 
 ## Next Best Work
 
-Recommended next slice: Phase 2 environment depth.
+Recommended next slice: make command presets more ergonomic and update docs/roadmap.
 
 Good order:
 
-1. Load `.env` from the project folder and merge it into launch env.
-2. Add per-project environment variable fields in the edit modal.
-3. Detect useful `package.json` scripts beyond `start`, such as `dev`, `test`, and `build`.
-4. Add command presets so a project can run more than one command.
+1. Improve the preset dropdown UI and make it easier to run/stop specific presets.
+2. Persist output metadata by command/preset where useful.
+3. Add AI-agent-oriented presets as a generic command type, likely after PTY work.
+4. Mask sensitive env values in the UI.
+5. Update `docs/ROADMAP.md` and `docs/FEATURE_GAPS.md` to mark env/preset pieces implemented and add AI agent launch presets as a future item.
 
-Product rationale: this directly answers the reviewer's concern that ProjectHub must handle environments and workflow context, not just execute commands.
+Product rationale: ProjectHub now handles env and multiple commands; the next value is making those commands first-class workflow actions instead of just text fields.
+
+## Test Fixture
+
+Use `tests/projecthub-env-test` to manually test:
+
+- `.env` loading.
+- Per-project env overrides.
+- Quoted `.env` values.
+- `node_modules/.bin` PATH prepending.
+- `package.json` script detection.
+- Preset launching from the card dropdown.
+- Failed command state via `npm run fail`.
+- Stop behavior via `npm run long`.
+
+Detailed steps and expected output are in:
+
+```text
+tests\projecthub-env-test\README.md
+```
 
 ## Manual Test Checklist
 
@@ -114,3 +150,4 @@ After lifecycle/log changes, test:
 - Close and reopen ProjectHub and confirm output history remains.
 - Clear output and confirm it does not return after restart.
 - Trigger a failing command and confirm the card shows failed status and last run failure.
+- For env/preset changes, follow `tests\projecthub-env-test\README.md`.

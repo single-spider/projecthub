@@ -191,6 +191,20 @@ Acceptance criteria:
 
 - Users can find and launch a project quickly without the mouse.
 
+
+## Extra
+- Support project-scoped AI agent presets such as Codex CLI, Claude Code, Aider, Gemini CLI, Goose, or custom commands. Agents launch in the project folder with the same env handling as project commands.
+- Detect common agent CLIs available on PATH and offer them as quick presets.
+
+    Examples:
+
+    codex
+    claude
+    aider
+    gemini
+    goose
+- Let projects store agent-oriented context files, runbooks, prompt templates, and preferred agent commands.
+
 ## Phase 4: Terminal and Developer Experience
 
 ### 10. Real Terminal Emulation
@@ -230,6 +244,7 @@ Acceptance criteria:
 
 - Settings persist across restarts.
 - Defaults are sensible when no settings file exists.
+
 
 ## Backlog
 

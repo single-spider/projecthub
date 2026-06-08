@@ -333,6 +333,22 @@
     flex: 0; padding: 8px 10px;
   }
   .card-btn.open:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .preset-select {
+    min-width: 96px;
+    max-width: 130px;
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 9px;
+    color: var(--text-secondary);
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 8px 9px;
+    outline: none;
+    cursor: pointer;
+  }
+  .preset-select:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .preset-select:disabled { opacity: 0.45; cursor: not-allowed; }
 
   /* ── Output panel ── */
   #view-output { flex-direction: column; gap: 0; }
@@ -456,6 +472,12 @@
     box-shadow: 0 24px 64px rgba(0,0,0,0.6);
     transform: translateY(20px) scale(0.97);
     transition: transform 0.25s cubic-bezier(0.4,0,0.2,1);
+    -webkit-app-region: no-drag;
+    user-select: text;
+  }
+  .modal input, .modal textarea, .modal select, .modal button {
+    -webkit-app-region: no-drag;
+    user-select: text;
   }
   .modal-overlay.open .modal { transform: translateY(0) scale(1); }
   .modal-title { font-size: 18px; font-weight: 800; margin-bottom: 20px; }
@@ -471,6 +493,7 @@
   .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--accent-1); }
   .form-select { cursor: pointer; }
   .form-textarea { resize: vertical; min-height: 70px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .env-textarea { min-height: 92px; }
   .form-input::placeholder { color: var(--text-muted); }
   .form-input.invalid, .form-textarea.invalid { border-color: rgba(251,113,133,0.85); }
   .form-error {
@@ -750,6 +773,16 @@
       <div class="form-error" id="err-cmd"></div>
     </div>
     <div class="form-group">
+      <label class="form-label">Command Presets</label>
+      <textarea class="form-textarea" id="f-presets" placeholder="dev=npm run dev&#10;test=npm test&#10;build=npm run build" rows="3" spellcheck="false"></textarea>
+      <div class="form-error" id="err-presets"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Environment Variables</label>
+      <textarea class="form-textarea env-textarea" id="f-env" placeholder="API_KEY=local-value&#10;PORT=3000" rows="3" spellcheck="false"></textarea>
+      <div class="form-error" id="err-env"></div>
+    </div>
+    <div class="form-group">
       <label class="form-label">Tags (comma separated)</label>
       <input class="form-input" id="f-tags" placeholder="web, api, tool, automation"/>
     </div>
@@ -812,6 +845,7 @@ const MAX_PROCESS_LOG_ENTRIES = 1000;
 
 async function init() {
   projects = await window.api.getProjects() || [];
+  await hydrateMissingProjectPresets();
   loadSavedProcessLogs(await window.api.getProcessLogs());
   renderAll();
   updateBadges();
@@ -846,6 +880,24 @@ async function init() {
 }
 
 // ─── Project helpers ──────────────────────────────────────────────────────────
+async function hydrateMissingProjectPresets() {
+  let changed = false;
+
+  for (const project of projects) {
+    if (!project?.path || getRunnablePresets(project).length) continue;
+
+    try {
+      const info = await window.api.detectProject(project.path);
+      if (Array.isArray(info?.presets) && info.presets.length) {
+        project.presets = info.presets;
+        changed = true;
+      }
+    } catch (e) {}
+  }
+
+  if (changed) await saveAll();
+}
+
 function loadSavedProcessLogs(savedLogs) {
   processOutputs = {};
   processMeta = {};
@@ -925,7 +977,7 @@ function renderAll() {
 
   filteredProjects = list;
   renderGrid(list);
-  [...new Set([...runningProjects, ...Object.keys(projectStates)])].forEach(id => updateProjectCardStatus(id));
+  [...new Set([...list.map(p => p.id), ...runningProjects, ...Object.keys(projectStates)])].forEach(id => updateProjectCardStatus(id));
   updateStats();
   document.getElementById('project-count').textContent = `${list.length} of ${projects.length} project${projects.length !== 1 ? 's' : ''}`;
 }
@@ -1037,7 +1089,26 @@ function renderProjectActions(id, state) {
         <button class="card-btn restart" onclick="event.stopPropagation();restartProject('${id}')"${disabled}>Restart</button>`;
   }
 
-  return `<button class="card-btn run" onclick="event.stopPropagation();runProject('${id}')">Run</button>`;
+  return `
+        <button class="card-btn run" onclick="event.stopPropagation();runProject('${id}')">Run</button>
+        ${renderPresetSelect(id)}`;
+}
+
+function getRunnablePresets(project) {
+  return Array.isArray(project?.presets)
+    ? project.presets.filter(preset => preset?.name && preset?.command)
+    : [];
+}
+
+function renderPresetSelect(id) {
+  const project = projects.find(p => p.id === id);
+  const presets = getRunnablePresets(project);
+  if (!presets.length) return '';
+
+  return `<select class="preset-select" onclick="event.stopPropagation()" onchange="event.stopPropagation();runProjectPreset('${id}', this.value);this.value=''">
+        <option value="">Presets</option>
+        ${presets.map((preset, index) => `<option value="${index}">${escHtml(preset.name)}</option>`).join('')}
+      </select>`;
 }
 
 function updateProjectCardStatus(id, running) {
@@ -1093,7 +1164,9 @@ async function runProject(id) {
   const p = projects.find(x => x.id === id);
   if (!p) return;
   if (getProjectState(id) === 'starting') return;
-  if (!p.command) { toast('Run command is required. Edit the project first.', 'error'); return; }
+  const command = arguments.length > 1 && arguments[1] ? String(arguments[1]).trim() : p.command;
+  const label = arguments.length > 2 && arguments[2] ? String(arguments[2]).trim() : '';
+  if (!command) { toast('Run command is required. Edit the project first.', 'error'); return; }
   if (!p.path) { toast('Project folder is required. Edit the project first.', 'error'); return; }
 
   setProjectState(id, 'starting');
@@ -1106,11 +1179,11 @@ async function runProject(id) {
     return;
   }
 
-  const res = await window.api.launchProject({ id, command: p.command, cwd: p.path });
+  const res = await window.api.launchProject({ id, command, cwd: p.path, env: p.env || {} });
   if (res.success) {
     setProjectState(id, 'running');
     setLastRun(id, 'running', null);
-    rememberProcessOutput(id, `[Started: ${p.name}]\n$ ${p.command}\n`, 'system');
+    rememberProcessOutput(id, `[Started: ${p.name}${label ? ` / ${label}` : ''}]\n$ ${command}\n`, 'system');
     toast(`▶ ${p.name} started`, 'success');
     switchView('output', document.querySelector('.nav-item[data-view="output"]'));
     setOutputProject(id);
@@ -1119,6 +1192,14 @@ async function runProject(id) {
     setLastRun(id, 'failed', null);
     toast(`Failed: ${res.error}`, 'error');
   }
+}
+
+async function runProjectPreset(id, presetIndex) {
+  if (presetIndex === '') return;
+  const p = projects.find(x => x.id === id);
+  const preset = getRunnablePresets(p)[Number(presetIndex)];
+  if (!preset) return;
+  await runProject(id, preset.command, preset.name);
 }
 
 async function stopProject(id) {
@@ -1310,6 +1391,7 @@ function openAddModal() {
   clearForm();
   clearFormErrors();
   document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-name')?.focus(), 0);
 }
 
 function editProject(id) {
@@ -1325,13 +1407,16 @@ function editProject(id) {
   document.getElementById('f-type').value = p.type||'python';
   document.getElementById('f-color').value = p.color||'purple';
   document.getElementById('f-cmd').value = p.command||'';
+  document.getElementById('f-presets').value = formatCommandPresets(p.presets);
+  document.getElementById('f-env').value = formatEnvVars(p.env);
   document.getElementById('f-tags').value = (p.tags||[]).join(', ');
   clearFormErrors();
   document.getElementById('modal-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-name')?.focus(), 0);
 }
 
 function clearForm() {
-  ['f-name','f-icon','f-desc','f-path','f-cmd','f-tags'].forEach(id => document.getElementById(id).value = '');
+  ['f-name','f-icon','f-desc','f-path','f-cmd','f-presets','f-env','f-tags'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-type').value = 'python';
   document.getElementById('f-color').value = 'purple';
 }
@@ -1361,6 +1446,7 @@ async function autoDetect() {
     setFieldError('path', '');
     document.getElementById('f-type').value = info.type;
     document.getElementById('f-cmd').value = info.runCommand;
+    document.getElementById('f-presets').value = formatCommandPresets(info.presets);
     if (!document.getElementById('f-icon').value) {
       document.getElementById('f-icon').value = TYPE_ICONS[info.type] || '📦';
     }
@@ -1369,7 +1455,7 @@ async function autoDetect() {
 }
 
 function setFieldError(field, message) {
-  const inputIds = { name: 'f-name', path: 'f-path', cmd: 'f-cmd' };
+  const inputIds = { name: 'f-name', path: 'f-path', cmd: 'f-cmd', presets: 'f-presets', env: 'f-env' };
   const input = document.getElementById(inputIds[field]);
   const error = document.getElementById(`err-${field}`);
   if (!input || !error) return;
@@ -1380,7 +1466,84 @@ function setFieldError(field, message) {
 }
 
 function clearFormErrors() {
-  ['name','path','cmd'].forEach(field => setFieldError(field, ''));
+  ['name','path','cmd','presets','env'].forEach(field => setFieldError(field, ''));
+}
+
+function parseCommandPresets(text) {
+  const presets = [];
+  const errors = [];
+  const seen = new Set();
+
+  String(text || '').split(/\r?\n/).forEach((rawLine, index) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) return;
+
+    const equalsIndex = line.indexOf('=');
+    if (equalsIndex <= 0) {
+      errors.push(`Line ${index + 1} must use Name=command.`);
+      return;
+    }
+
+    const name = line.slice(0, equalsIndex).trim();
+    const command = line.slice(equalsIndex + 1).trim();
+    const key = name.toLowerCase();
+
+    if (!name) errors.push(`Line ${index + 1} needs a preset name.`);
+    if (!command) errors.push(`Line ${index + 1} needs a command.`);
+    if (seen.has(key)) errors.push(`Line ${index + 1} duplicates preset "${name}".`);
+
+    if (name && command && !seen.has(key)) {
+      seen.add(key);
+      presets.push({ name, command });
+    }
+  });
+
+  return { presets, errors };
+}
+
+function formatCommandPresets(presets) {
+  if (!Array.isArray(presets)) return '';
+  return presets
+    .filter(p => p?.name && p?.command)
+    .map(p => `${p.name}=${p.command}`)
+    .join('\n');
+}
+
+function parseEnvVars(text) {
+  const env = {};
+  const errors = [];
+
+  String(text || '').split(/\r?\n/).forEach((rawLine, index) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) return;
+
+    const equalsIndex = line.indexOf('=');
+    if (equalsIndex <= 0) {
+      errors.push(`Line ${index + 1} must use KEY=value.`);
+      return;
+    }
+
+    const key = line.slice(0, equalsIndex).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      errors.push(`Line ${index + 1} has an invalid variable name.`);
+      return;
+    }
+
+    let value = line.slice(equalsIndex + 1).trim();
+    const quote = value[0];
+    if ((quote === '"' || quote === "'") && value[value.length - 1] === quote) {
+      value = value.slice(1, -1);
+    }
+
+    env[key] = value;
+  });
+
+  return { env, errors };
+}
+
+function formatEnvVars(env) {
+  if (!env || typeof env !== 'object' || Array.isArray(env)) return '';
+  return Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n');
 }
 
 async function validateProjectForm() {
@@ -1389,11 +1552,17 @@ async function validateProjectForm() {
   const name = document.getElementById('f-name').value.trim();
   const projectPath = document.getElementById('f-path').value.trim();
   const command = document.getElementById('f-cmd').value.trim();
+  const presetsText = document.getElementById('f-presets').value;
+  const presetsResult = parseCommandPresets(presetsText);
+  const envText = document.getElementById('f-env').value;
+  const envResult = parseEnvVars(envText);
   const errors = [];
 
   if (!name) errors.push(['name', 'Project name is required.']);
   if (!projectPath) errors.push(['path', 'Project folder is required.']);
   if (!command) errors.push(['cmd', 'Run command is required.']);
+  if (presetsResult.errors.length) errors.push(['presets', presetsResult.errors[0]]);
+  if (envResult.errors.length) errors.push(['env', envResult.errors[0]]);
 
   if (projectPath) {
     const pathCheck = await window.api.validateProjectPath(projectPath);
@@ -1415,6 +1584,8 @@ async function saveProject() {
 
   const name = document.getElementById('f-name').value.trim();
   const tags = document.getElementById('f-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  const presets = parseCommandPresets(document.getElementById('f-presets').value).presets;
+  const env = parseEnvVars(document.getElementById('f-env').value).env;
   const proj = {
     id: editingId || genId(),
     name,
@@ -1424,6 +1595,8 @@ async function saveProject() {
     type: document.getElementById('f-type').value,
     color: document.getElementById('f-color').value,
     command: document.getElementById('f-cmd').value.trim(),
+    presets,
+    env,
     tags,
     addedAt: editingId ? (projects.find(p=>p.id===editingId)?.addedAt || Date.now()) : Date.now(),
   };

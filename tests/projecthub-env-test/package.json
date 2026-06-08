@@ -1,0 +1,14 @@
+{
+  "name": "projecthub-env-test",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index.js start",
+    "dev": "node index.js dev",
+    "test": "node index.js test",
+    "build": "node index.js build",
+    "agent": "node index.js agent",
+    "fail": "node index.js fail",
+    "long": "node index.js long"
+  }
+}

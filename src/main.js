@@ -182,6 +182,72 @@ function getPathKey(env) {
   return Object.keys(env).find((key) => key.toLowerCase() === 'path') || 'PATH';
 }
 
+function parseEnvFile(contents) {
+  const parsed = {};
+
+  String(contents || '').split(/\r?\n/).forEach((rawLine) => {
+    const line = rawLine.trim();
+    if (!line || line.startsWith('#')) return;
+
+    const equalsIndex = line.indexOf('=');
+    if (equalsIndex <= 0) return;
+
+    const key = line.slice(0, equalsIndex).trim();
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return;
+
+    let value = line.slice(equalsIndex + 1).trim();
+    const quote = value[0];
+    if ((quote === '"' || quote === "'") && value[value.length - 1] === quote) {
+      value = value.slice(1, -1);
+    }
+
+    parsed[key] = value;
+  });
+
+  return parsed;
+}
+
+function loadDotEnv(cwd) {
+  const envPath = path.join(cwd, '.env');
+  try {
+    if (!pathExists(envPath)) return {};
+    return parseEnvFile(fs.readFileSync(envPath, 'utf8'));
+  } catch (e) {
+    return {};
+  }
+}
+
+function normalizeProjectEnv(projectEnv) {
+  const normalized = {};
+  if (!projectEnv || typeof projectEnv !== 'object' || Array.isArray(projectEnv)) return normalized;
+
+  Object.entries(projectEnv).forEach(([key, value]) => {
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+      normalized[key] = String(value);
+    }
+  });
+
+  return normalized;
+}
+
+function buildNpmScriptPresets(scripts) {
+  if (!scripts || typeof scripts !== 'object' || Array.isArray(scripts)) return [];
+
+  const preferredOrder = ['dev', 'start', 'test', 'build', 'lint', 'preview'];
+  const scriptNames = Object.keys(scripts);
+  const orderedNames = [
+    ...preferredOrder.filter((name) => scriptNames.includes(name)),
+    ...scriptNames.filter((name) => !preferredOrder.includes(name)).sort(),
+  ];
+
+  return orderedNames.map((name) => ({
+    name,
+    command: name === 'start' ? 'npm start'
+      : name === 'test' ? 'npm test'
+      : `npm run ${name}`,
+  }));
+}
+
 function findPythonVirtualEnv(cwd) {
   for (const dirName of ['.venv', 'venv', 'env']) {
     const envPath = path.join(cwd, dirName);
@@ -197,8 +263,8 @@ function findPythonVirtualEnv(cwd) {
   return null;
 }
 
-function buildLaunchOptions(cwd, command) {
-  const env = { ...process.env };
+function buildLaunchOptions(cwd, command, projectEnv = {}) {
+  const env = { ...process.env, ...loadDotEnv(cwd), ...normalizeProjectEnv(projectEnv) };
   const pathKey = getPathKey(env);
   const pathParts = [];
   let resolvedCommand = command;
@@ -251,12 +317,17 @@ ipcMain.handle('detect-project', async (_, folderPath) => {
     if (!validation.valid) return { type: 'unknown', runCommand: '', entryFile: '', error: validation.error };
 
     const files = fs.readdirSync(folderPath);
-    const info = { type: 'unknown', runCommand: '', entryFile: '' };
+    const info = { type: 'unknown', runCommand: '', entryFile: '', presets: [] };
 
     if (files.includes('package.json')) {
       const pkg = JSON.parse(fs.readFileSync(path.join(folderPath, 'package.json'), 'utf8'));
+      const presets = buildNpmScriptPresets(pkg.scripts);
       info.type = 'node';
-      info.runCommand = pkg.scripts?.start ? 'npm start' : 'node index.js';
+      info.presets = presets;
+      info.runCommand = presets.find((preset) => preset.name === 'start')?.command
+        || presets.find((preset) => preset.name === 'dev')?.command
+        || presets[0]?.command
+        || 'node index.js';
     } else if (files.find(f => f.endsWith('.py'))) {
       const pyFiles = files.filter(f => f.endsWith('.py'));
       const main = pyFiles.find(f => ['main.py','app.py','run.py','server.py'].includes(f)) || pyFiles[0];
@@ -279,7 +350,7 @@ ipcMain.handle('detect-project', async (_, folderPath) => {
 
 // ─── Process management ─────────────────────────────────────────────────────
 
-ipcMain.handle('launch-project', async (_, { id, command, cwd }) => {
+ipcMain.handle('launch-project', async (_, { id, command, cwd, env: projectEnv }) => {
   if (!id) return { success: false, error: 'Project id is required.' };
   if (!command || !String(command).trim()) return { success: false, error: 'Run command is required.' };
 
@@ -293,7 +364,7 @@ ipcMain.handle('launch-project', async (_, { id, command, cwd }) => {
   }
 
   try {
-    const launch = buildLaunchOptions(cwd, command);
+    const launch = buildLaunchOptions(cwd, command, projectEnv);
     const shellExe = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
     const shellArgs = process.platform === 'win32' ? ['/c', launch.command] : ['-c', launch.command];
     
