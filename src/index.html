@@ -293,6 +293,15 @@
   @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
 
   .card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 14px; min-height: 36px; }
+  .card-last-run {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: -8px;
+    margin-bottom: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
   .card-tag {
@@ -772,6 +781,8 @@ let projects = [];
 let filteredProjects = [];
 let runningProjects = new Set();
 let projectStates = {};
+let processMeta = {};
+let processLogSaveTimer = null;
 let processOutputs = {};   // id → lines[]
 let currentOutputId = null;
 let currentLayout = 'grid';
@@ -797,8 +808,11 @@ const COLORS = {
 const TYPE_ICONS = { python:'🐍', node:'⬡', web:'🌐', pyqt:'🖼', shell:'🔧', other:'📦' };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
+const MAX_PROCESS_LOG_ENTRIES = 1000;
+
 async function init() {
   projects = await window.api.getProjects() || [];
+  loadSavedProcessLogs(await window.api.getProcessLogs());
   renderAll();
   updateBadges();
   buildFilters();
@@ -806,8 +820,7 @@ async function init() {
   newTerminal();
 
   window.api.onProcessOutput(({ id, data, type }) => {
-    if (!processOutputs[id]) processOutputs[id] = [];
-    processOutputs[id].push({ data, type, time: Date.now() });
+    rememberProcessOutput(id, data, type);
     if (currentOutputId === id) appendOutput(data, type);
     updateRunningBadge();
     updateOutputTabs();
@@ -816,9 +829,10 @@ async function init() {
   window.api.onProcessExit(({ id, code }) => {
     const stateBeforeExit = getProjectState(id);
     setProjectState(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
-    if (!processOutputs[id]) processOutputs[id] = [];
-    processOutputs[id].push({ data: `\n[Process exited with code ${code}]\n`, type: 'system', time: Date.now() });
+    setLastRun(id, code === 0 || stateBeforeExit === 'stopping' ? 'success' : 'failed', code);
+    rememberProcessOutput(id, `\n[Process exited with code ${code}]\n`, 'system');
     if (currentOutputId === id) appendOutput(`\n[Process exited with code ${code}]\n`, 'system');
+    renderAll();
   });
 
   window.api.onTerminalData(({ id, data }) => {
@@ -832,6 +846,65 @@ async function init() {
 }
 
 // ─── Project helpers ──────────────────────────────────────────────────────────
+function loadSavedProcessLogs(savedLogs) {
+  processOutputs = {};
+  processMeta = {};
+
+  if (!savedLogs || typeof savedLogs !== 'object') return;
+
+  Object.entries(savedLogs).forEach(([id, log]) => {
+    processOutputs[id] = Array.isArray(log?.entries)
+      ? log.entries.slice(-MAX_PROCESS_LOG_ENTRIES)
+      : [];
+    if (log?.lastRun) processMeta[id] = { lastRun: log.lastRun };
+  });
+}
+
+function getPersistableProcessLogs() {
+  const logs = {};
+  const ids = new Set([...Object.keys(processOutputs), ...Object.keys(processMeta)]);
+
+  ids.forEach((id) => {
+    logs[id] = {
+      entries: (processOutputs[id] || []).slice(-MAX_PROCESS_LOG_ENTRIES),
+      lastRun: processMeta[id]?.lastRun || null,
+    };
+  });
+
+  return logs;
+}
+
+function scheduleProcessLogSave() {
+  clearTimeout(processLogSaveTimer);
+  processLogSaveTimer = setTimeout(() => {
+    window.api.saveProcessLogs(getPersistableProcessLogs());
+  }, 350);
+}
+
+function rememberProcessOutput(id, data, type) {
+  if (!processOutputs[id]) processOutputs[id] = [];
+  processOutputs[id].push({ data, type, time: Date.now() });
+  if (processOutputs[id].length > MAX_PROCESS_LOG_ENTRIES) {
+    processOutputs[id] = processOutputs[id].slice(-MAX_PROCESS_LOG_ENTRIES);
+  }
+  scheduleProcessLogSave();
+}
+
+function setLastRun(id, status, code) {
+  processMeta[id] = { ...(processMeta[id] || {}), lastRun: { status, code, time: Date.now() } };
+  scheduleProcessLogSave();
+}
+
+function getLastRunSummary(id) {
+  const lastRun = processMeta[id]?.lastRun;
+  if (!lastRun?.time) return '';
+  const status = lastRun.status === 'success' ? 'Last run OK'
+    : lastRun.status === 'failed' ? 'Last run failed'
+    : lastRun.status === 'running' ? 'Started'
+    : 'Last run stopped';
+  return `${status} at ${new Date(lastRun.time).toLocaleString()}`;
+}
+
 function genId() { return 'p_' + Date.now() + '_' + Math.random().toString(36).slice(2,7); }
 
 async function saveAll() {
@@ -876,6 +949,7 @@ function renderGrid(list) {
     const c = COLORS[p.color || 'purple'];
     const state = getProjectState(p.id);
     const isRunning = state === 'running' || state === 'starting' || state === 'stopping';
+    const lastRun = getLastRunSummary(p.id);
     const tags = (p.tags||[]).slice(0,3).map(t =>
       `<span class="card-tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${t}</span>`
     ).join('');
@@ -897,6 +971,7 @@ function renderGrid(list) {
         </div>
       </div>
       <div class="card-desc">${escHtml(p.desc || 'No description')}</div>
+      ${lastRun ? `<div class="card-last-run">${escHtml(lastRun)}</div>` : ''}
       ${tags ? `<div class="card-tags">${tags}</div>` : ''}
       <div class="card-actions">
         ${isRunning
@@ -1026,6 +1101,7 @@ async function runProject(id) {
   const pathCheck = await window.api.validateProjectPath(p.path);
   if (!pathCheck.valid) {
     setProjectState(id, 'failed');
+    setLastRun(id, 'failed', null);
     toast(pathCheck.error || 'Project folder is not valid.', 'error');
     return;
   }
@@ -1033,13 +1109,14 @@ async function runProject(id) {
   const res = await window.api.launchProject({ id, command: p.command, cwd: p.path });
   if (res.success) {
     setProjectState(id, 'running');
-    if (!processOutputs[id]) processOutputs[id] = [];
-    processOutputs[id].push({ data: `[Started: ${p.name}]\n$ ${p.command}\n`, type: 'system', time: Date.now() });
+    setLastRun(id, 'running', null);
+    rememberProcessOutput(id, `[Started: ${p.name}]\n$ ${p.command}\n`, 'system');
     toast(`▶ ${p.name} started`, 'success');
     switchView('output', document.querySelector('.nav-item[data-view="output"]'));
     setOutputProject(id);
   } else {
     setProjectState(id, 'failed');
+    setLastRun(id, 'failed', null);
     toast(`Failed: ${res.error}`, 'error');
   }
 }
@@ -1048,6 +1125,7 @@ async function stopProject(id) {
   setProjectState(id, 'stopping');
   await window.api.stopProject(id);
   setProjectState(id, 'stopped');
+  setLastRun(id, 'stopped', null);
   const p = projects.find(x => x.id === id);
   toast(`⏹ ${p?.name || 'Project'} stopped`, 'info');
   renderAll();
@@ -1058,8 +1136,7 @@ async function restartProject(id) {
   if (!p) return;
   if (getProjectState(id) === 'starting' || getProjectState(id) === 'stopping') return;
 
-  if (!processOutputs[id]) processOutputs[id] = [];
-  processOutputs[id].push({ data: `\n[Restarting: ${p.name}]\n`, type: 'system', time: Date.now() });
+  rememberProcessOutput(id, `\n[Restarting: ${p.name}]\n`, 'system');
   if (currentOutputId === id) appendOutput(`\n[Restarting: ${p.name}]\n`, 'system');
 
   setProjectState(id, 'stopping');
@@ -1103,26 +1180,31 @@ function setOutputProject(id) {
   document.getElementById('output-current-label').textContent = p?.name || id;
   const container = document.getElementById('output-container');
   container.innerHTML = '';
-  (processOutputs[id] || []).forEach(({ data, type }) => appendOutput(data, type, false));
+  (processOutputs[id] || []).forEach(({ data, type, time }) => appendOutput(data, type, false, time));
   container.scrollTop = container.scrollHeight;
   updateOutputTabs();
 }
 
-function appendOutput(data, type, scroll=true) {
+function appendOutput(data, type, scroll=true, time=Date.now()) {
   const container = document.getElementById('output-container');
   const lines = data.split('\n');
   lines.forEach((line, i) => {
     if (i === lines.length-1 && line === '') return;
     const div = document.createElement('div');
     div.className = `out-line ${type==='stderr'?'err':type==='system'?'system':''}`;
-    div.innerHTML = `<span class="out-timestamp">${new Date().toLocaleTimeString()}</span>${escHtml(line)}`;
+    div.innerHTML = `<span class="out-timestamp">${new Date(time).toLocaleTimeString()}</span>${escHtml(line)}`;
     container.appendChild(div);
   });
   if (scroll) container.scrollTop = container.scrollHeight;
 }
 
 function clearOutput() {
-  if (currentOutputId) processOutputs[currentOutputId] = [];
+  if (currentOutputId) {
+    processOutputs[currentOutputId] = [];
+    delete processMeta[currentOutputId];
+    window.api.clearProcessLog(currentOutputId);
+    renderAll();
+  }
   document.getElementById('output-container').innerHTML = '';
 }
 

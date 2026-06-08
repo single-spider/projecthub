@@ -8,8 +8,8 @@ Make ProjectHub reliable as a daily local project launcher:
 
 - [x] Save project definitions safely.
 - [x] Validate paths and commands before launch.
-- [ ] Start, stop, and restart processes predictably.
-- [ ] Preserve enough output and history to debug failed runs.
+- [x] Start, stop, and restart processes predictably.
+- [x] Preserve enough output and history to debug failed runs.
 
 ## Implemented Features
 
@@ -72,10 +72,11 @@ Goal: keep useful run history after switching views or restarting the app.
 
 Planned work:
 
-- Save recent process output per project.
-- Add a maximum log size per project.
-- Add clear/export output actions.
-- Show last run status and timestamp.
+- [x] Save recent process output per project.
+- [x] Add a maximum log size per project.
+- [x] Add clear output actions.
+- [x] Show last run status and timestamp.
+- Add export output actions.
 
 Acceptance criteria:
 

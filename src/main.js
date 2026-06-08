@@ -7,6 +7,8 @@ const os = require('os');
 let mainWindow;
 const runningProcesses = new Map();
 const DATA_FILE = path.join(app.getPath('userData'), 'projects.json');
+const LOGS_FILE = path.join(app.getPath('userData'), 'process-logs.json');
+const MAX_LOG_ENTRIES_PER_PROJECT = 1000;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -71,6 +73,56 @@ function saveProjects(projects) {
 
 ipcMain.handle('get-projects', () => loadProjects());
 ipcMain.handle('save-projects', (_, projects) => saveProjects(projects));
+
+function normalizeProcessLogs(logs) {
+  const normalized = {};
+  if (!logs || typeof logs !== 'object' || Array.isArray(logs)) return normalized;
+
+  Object.entries(logs).forEach(([id, value]) => {
+    if (!value || typeof value !== 'object') return;
+    const entries = Array.isArray(value.entries)
+      ? value.entries.slice(-MAX_LOG_ENTRIES_PER_PROJECT).map((entry) => ({
+          data: String(entry.data || ''),
+          type: String(entry.type || 'stdout'),
+          time: Number(entry.time) || Date.now(),
+        }))
+      : [];
+
+    normalized[id] = {
+      entries,
+      lastRun: value.lastRun && typeof value.lastRun === 'object' ? value.lastRun : null,
+    };
+  });
+
+  return normalized;
+}
+
+function loadProcessLogs() {
+  try {
+    if (fs.existsSync(LOGS_FILE)) {
+      return normalizeProcessLogs(JSON.parse(fs.readFileSync(LOGS_FILE, 'utf8')));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveProcessLogs(logs) {
+  try {
+    fs.mkdirSync(path.dirname(LOGS_FILE), { recursive: true });
+    fs.writeFileSync(LOGS_FILE, JSON.stringify(normalizeProcessLogs(logs), null, 2));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+ipcMain.handle('get-process-logs', () => loadProcessLogs());
+ipcMain.handle('save-process-logs', (_, logs) => saveProcessLogs(logs));
+ipcMain.handle('clear-process-log', (_, id) => {
+  const logs = loadProcessLogs();
+  if (id) delete logs[id];
+  return saveProcessLogs(logs);
+});
 
 // ─── File / folder dialogs ───────────────────────────────────────────────────
 

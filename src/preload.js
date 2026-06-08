@@ -4,6 +4,9 @@ contextBridge.exposeInMainWorld('api', {
   // Projects
   getProjects: () => ipcRenderer.invoke('get-projects'),
   saveProjects: (projects) => ipcRenderer.invoke('save-projects', projects),
+  getProcessLogs: () => ipcRenderer.invoke('get-process-logs'),
+  saveProcessLogs: (logs) => ipcRenderer.invoke('save-process-logs', logs),
+  clearProcessLog: (id) => ipcRenderer.invoke('clear-process-log', id),
 
   // Dialogs
   pickFolder: () => ipcRenderer.invoke('pick-folder'),

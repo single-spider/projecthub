@@ -34,7 +34,7 @@ Why it matters: a launcher is only trustworthy if the UI reflects what is actual
 
 ### Persistent Logs
 
-Current state: output is kept in memory during the current app session.
+Current state: recent process output is saved per project in the Electron user-data folder, capped to a fixed number of entries, and project cards show last run status and timestamp. Export is still missing.
 
 Why it matters: failed runs are often diagnosed after the fact, and users should not lose output when restarting the app.
 
