@@ -119,6 +119,8 @@ npm start
 
 - `d8997d4` - Fix process cleanup and Terminal layout.
 - `0f721d9` - Add roadmap workflow features.
+- `d0da654` - Update roadmap documentation.
+- `953f213` - Add agent preset detection.
 
 ## Next Best Work
 
