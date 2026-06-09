@@ -1,104 +1,67 @@
 # Feature Gaps
 
-This document captures what ProjectHub is missing today and why each feature matters. Use it as a product checklist when choosing the next implementation task.
+ProjectHub now covers the core launcher, configuration, workflow, and persistence roadmap. This document tracks what remains and why it still matters.
 
 ## Implemented Capabilities
 
-- [x] Project cards.
-- [x] One-click run and stop.
-- [x] Live output panel.
-- [x] Built-in terminal tabs.
-- [x] Project auto-detection.
-- [x] Type and tag filters.
-- [x] Project search.
-- [x] Right-click project context menu.
-- [x] Local project persistence.
-- [x] Grid and list layouts.
-- [x] Project path and command validation.
+- [x] Project cards, status indicators, icons, color accents, grid/list layout.
+- [x] One-click run, stop, and restart.
+- [x] Windows process-tree cleanup for projects, terminals, and app shutdown.
+- [x] Live output panel with persisted recent logs and export.
+- [x] Built-in terminal tabs with project CWD selection.
+- [x] Terminal context helper for tree, file preview, git status, docs, runbooks, prompts, and agent context files.
+- [x] Project validation before save and launch.
+- [x] Auto-detection for Node, Python, web folders, and Docker Compose.
+- [x] `.env` loading, virtualenv detection, project-local `node_modules/.bin`, and per-project env overrides.
+- [x] Command presets from `package.json` plus custom presets.
+- [x] Import/export for project definitions.
+- [x] Type, tag, group, favorite, and text filters.
+- [x] Lightweight workspaces through project groups, including run group and stop group actions.
+- [x] Favorites and recent-project ranking.
+- [x] Optional URL/port health checks, output URL detection, and open-in-browser action.
+- [x] App settings for default terminal shell, log retention, and startup view.
 
-## Reliability Gaps
-
-### Project Validation
-
-Current state: implemented. ProjectHub validates required name, folder, and command fields, checks folder accessibility through the main process, and repeats the folder check before launch.
-
-Why it matters: users get immediate feedback before a launch fails in the output panel.
-
-### Process Lifecycle
-
-Current state: ProjectHub can start and stop a process, but it needs stronger state tracking and more reliable child-process cleanup.
-
-Windows risk: plain Node process termination can leave spawned Python, Node, or shell children alive. ProjectHub should use process-tree cleanup on Windows, especially `taskkill /F /T /PID`, for project stops, terminal stops, and app shutdown.
-
-Why it matters: a launcher is only trustworthy if the UI reflects what is actually running.
-
-### Persistent Logs
-
-Current state: recent process output is saved per project in the Electron user-data folder, capped to a fixed number of entries, and project cards show last run status and timestamp. Export is still missing.
-
-Why it matters: failed runs are often diagnosed after the fact, and users should not lose output when restarting the app.
-
-## Configuration Gaps
-
-### Environment Variables
-
-Current state: launched processes inherit the app environment, with no per-project overrides.
-
-Auto-detection opportunity: ProjectHub can reduce setup friction by discovering `.venv`, `venv`, `env`, and `node_modules/.bin` inside a project folder, then launching with the correct `PATH`, `VIRTUAL_ENV`, and Python executable.
-
-Why it matters: real projects often need `NODE_ENV`, ports, API keys, local paths, or feature flags.
-
-### Command Presets
-
-Current state: each project has one command.
-
-Why it matters: most projects have several common commands, such as development, tests, builds, and migrations.
-
-### Import and Export
-
-Current state: project data is stored locally but there is no first-class backup or transfer flow.
-
-Why it matters: users should be able to move their launcher setup between machines.
-
-## Workflow Gaps
-
-### Workspaces and Groups
-
-Current state: projects can have tags and filters, but not durable workspaces with group actions.
-
-Why it matters: many local development flows require several services to run together.
-
-### Health Checks
-
-Current state: ProjectHub can show that a process is running, but not whether a web service is responding.
-
-Why it matters: a process can be alive while the app is still unavailable or failed internally.
-
-### Search and Keyboard Navigation
-
-Current state: search and filters exist, but they can become clumsy as the project list grows.
-
-Why it matters: a launcher should stay fast when users have many projects.
-
-## Terminal Gaps
+## Remaining Gaps
 
 ### Real Terminal Emulation
 
-Current state: terminal tabs use standard process pipes.
+Current state: terminal tabs still use standard `child_process.spawn` pipes.
 
-PTY note: a professional terminal experience needs a real pseudoterminal. `node-pty` plus `xterm.js` is the likely direction, but it should be treated as a dedicated phase because native builds are harder to support cross-platform.
+Why it matters: interactive prompts, password entry, curses-style UIs, resize-sensitive tools, and full-screen terminal programs need a PTY.
 
-Why it matters: interactive terminal programs often need a real PTY for prompts, colors, full-screen apps, and resize behavior.
+Likely path: evaluate `node-pty` with `xterm.js` in a dedicated branch. This should not be mixed with ordinary roadmap work because native module support affects packaging on Windows, macOS, and Linux.
 
-### Settings
+### Agent CLI Presets
 
-Current state: app-level preferences are mostly hard-coded.
+Current state: projects can store custom command presets, and the Terminal context panel now surfaces common agent context files.
 
-Why it matters: users need control over shell, theme, default folders, startup behavior, and log retention.
+Why it matters: AI workflows often use repeatable project-scoped commands such as `codex`, `claude`, `aider`, `gemini`, or `goose`.
+
+Likely path: detect installed agent CLIs from PATH and offer optional quick presets without hard-coding them into every project.
+
+### Deeper Settings
+
+Current state: settings cover default shell, log retention, and startup view.
+
+Remaining useful settings:
+
+- Theme preference.
+- Default projects folder.
+- Startup behavior beyond initial view.
+- Build/package verification preferences.
+
+### Per-Command Log Partitioning
+
+Current state: output is stored per project, with the active command/preset saved in run metadata.
+
+Why it matters: projects with many presets may benefit from separate logs for `dev`, `test`, `build`, and agent sessions.
+
+Likely path: extend `process-logs.json` carefully without merging logs into `projects.json`.
 
 ## Decision Notes
 
-- Prioritize reliability before adding larger workflow features.
-- Keep each roadmap item small enough to ship and verify independently.
-- Prefer visible UI feedback for every validation or runtime failure.
-- Avoid changing the storage format casually; when it changes, include migration logic.
+- Keep ProjectHub lightweight and avoid a framework rewrite.
+- Treat PTY work as its own phase.
+- Keep process logs separate from project definitions.
+- Preserve Windows `taskkill /T /F` cleanup.
+- Prefer project-memory features over purely decorative UI work.

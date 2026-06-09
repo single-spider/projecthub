@@ -1,153 +1,115 @@
-# ⬡ ProjectHub
+# ProjectHub
 
-A beautiful **glassmorphic** desktop app for managing all your local projects — Python scripts, PyQt5 apps, HTML+backend tools, Node servers, shell scripts — all in one place.
+ProjectHub is a lightweight Electron desktop app for managing local development projects: Python scripts, Node servers, Docker Compose stacks, web projects, shell tools, and agent-oriented workflows.
 
----
+## Features
 
-## ✨ Features
+- Project cards with status indicators, icons, color accents, and grid/list layout.
+- One-click Run, Stop, and Restart.
+- Windows process-tree cleanup with `taskkill /PID <pid> /T /F`.
+- Live stdout/stderr output with timestamps, input sending, persisted recent logs, and log export.
+- Built-in multi-tab terminal with command history and per-project CWD.
+- Terminal context panel for project tree, file preview, git status, docs, runbooks, prompts, and agent context files.
+- Auto-detection for Python, Node, web folders, and Docker Compose files.
+- `.env` loading, per-project environment variables, Python virtualenv detection, and project-local `node_modules/.bin`.
+- Command presets from `package.json`, custom presets, and Docker Compose presets.
+- Type, tag, group, favorite, and text filters.
+- Lightweight workspaces through project groups, including Run Group and Stop Group.
+- Favorites and recent-project ranking.
+- Optional URL or port health checks with output URL detection and open-in-browser action.
+- Import/export for project definitions.
+- Settings for default terminal shell, log retention, and startup view.
 
-- **Project Cards** — glassmorphic cards with status indicators, emoji icons, color accents
-- **One-click Run/Stop** — launch any project with its configured command; kill it just as fast
-- **Live Output Panel** — real-time stdout/stderr per project with timestamps and input sending
-- **Built-in Terminal** — multi-tab terminal with command history and per-project CWD
-- **Auto-detection** — drop a folder path and it detects Python/Node/Web projects and pre-fills the run command
-- **Smart Filters** — filter by type (Python, Node, Web…) or your own tags
-- **Search** — fuzzy search across names, descriptions, tags
-- **Right-click context menu** — Run, View Output, Open Folder, Open in Terminal, Edit, Delete
-- **Data persistence** — projects saved to your OS user-data folder
-- **Grid / List layout toggle**
+## Completed Checklist
 
-### Completed Feature Checklist
+- [x] Project cards.
+- [x] One-click run, stop, and restart.
+- [x] Live output panel.
+- [x] Built-in terminal.
+- [x] Project auto-detection.
+- [x] Type and tag filters.
+- [x] Project search.
+- [x] Right-click context menu.
+- [x] Local project persistence.
+- [x] Grid and list layout toggle.
+- [x] Project path and command validation.
+- [x] `.env` and per-project environment variables.
+- [x] Command presets.
+- [x] Docker Compose detection.
+- [x] Project import/export.
+- [x] Process log export.
+- [x] Groups/workspaces and favorites.
+- [x] Health checks.
+- [x] Settings.
 
-- [x] Project cards
-- [x] One-click run and stop
-- [x] Live output panel
-- [x] Built-in terminal
-- [x] Project auto-detection
-- [x] Type and tag filters
-- [x] Project search
-- [x] Right-click context menu
-- [x] Local project persistence
-- [x] Grid and list layout toggle
-- [x] Project path and command validation
-
----
-
-## 🚀 Quick Start (Development)
+## Quick Start
 
 ### Prerequisites
-- **Node.js** 18+ and npm
-- **Git** (optional)
 
-### Install & Run
+- Node.js 18+ and npm.
+- Git is optional but recommended.
+
+### Install And Run
 
 ```bash
-# 1. Enter the project folder
 cd projecthub
-
-# 2. Install dependencies
 npm install
-
-# 3. Launch the app
 npm start
 ```
 
----
-
 ## Documentation
 
-- [Roadmap](docs/ROADMAP.md) - prioritized implementation plan for upcoming work.
-- [Feature gaps](docs/FEATURE_GAPS.md) - missing capabilities and why they matter.
+- [Roadmap](docs/ROADMAP.md) - implementation status and remaining future slices.
+- [Feature gaps](docs/FEATURE_GAPS.md) - current remaining gaps and decision notes.
 
-That's it — the glassmorphic window will appear!
+## Build A Native App
 
----
-
-## 📦 Build a Native App
-
-### Linux (AppImage)
 ```bash
+npm run build:win
 npm run build:linux
-# Output: dist/ProjectHub-1.0.0.AppImage
-```
-Make it executable and run:
-```bash
-chmod +x dist/ProjectHub-*.AppImage
-./dist/ProjectHub-*.AppImage
-```
-
-### macOS (DMG)
-```bash
 npm run build:mac
 ```
 
-### Windows (Installer)
-```bash
-npm run build:win
-```
+## Usage
 
----
+### Adding A Project
 
-## 🖥 Usage
+1. Click Add Project.
+2. Choose a folder or paste a path.
+3. Use Auto-detect when possible.
+4. Set the run command, presets, env vars, group, health check, tags, and favorite status as needed.
+5. Save the project.
 
-### Adding a Project
-1. Click **＋ Add Project** in the sidebar (or the button in the empty state)
-2. Fill in the name, paste the folder path (or Browse), and click **Auto-detect** to auto-fill the run command
-3. Optionally add a description, emoji icon, color accent, and tags
-4. Click **Save Project**
+### Running A Project
 
-### Running a Project
-- Click **▶ Run** on any card (or right-click → Run)
-- The app spawns the command in your project's folder
-- The card turns green with a pulsing dot
-- Output streams live in the **Running / Output** view
+- Click Run on any card.
+- Use Presets to launch alternate commands.
+- Use Stop or Restart from cards, output view, or the context menu.
+- Use group filters and the Run/Stop group action pills for related projects.
 
-### Built-in Terminal
-- Click **Terminal** in the sidebar
-- Type commands — output streams back in real-time
-- Use **↑ / ↓** for command history
-- Click **＋** for new terminal tabs
-- Right-click any project → **Open in Terminal** to cd into that project automatically
+### Built-In Terminal
 
-### Project Types Supported
-| Type | Example command |
-|------|----------------|
-| 🐍 Python | `python main.py` or `python -m flask run` |
-| ⬡ Node.js | `npm start` or `node server.js` |
-| 🌐 Web | `python -m http.server 8080` |
-| 🖼 PyQt/Tkinter | `python app.py` |
-| 🔧 Shell | `bash run.sh` |
-| 📦 Other | Any shell command |
+- Open Terminal from the sidebar.
+- Use the project selector to start a shell in a project folder.
+- Use the context tabs for tree, preview, git, and workflow context files.
+- Use up/down arrows for command history.
 
----
+## Data Storage
 
-## 📁 Data Storage
+Project definitions, settings, and process logs are stored under Electron's user-data directory:
 
-Projects are stored as JSON at:
-- **Linux/Mac**: `~/.config/ProjectHub/projects.json`
-- **Windows**: `%APPDATA%\ProjectHub\projects.json`
+- Windows: `%APPDATA%\projecthub`
+- Linux/macOS: the platform-specific Electron user-data path.
 
----
+Files:
 
-## 🛠 Tech Stack
+- `projects.json` - project definitions.
+- `process-logs.json` - recent output and last-run metadata.
+- `settings.json` - app preferences.
 
-- **Electron** — cross-platform desktop shell
-- **Vanilla JS** — no framework, fast and lean
-- **Syne + JetBrains Mono** — typography
-- **CSS glassmorphism** — `backdrop-filter`, gradient meshes, dot-grid overlay
-- **Node.js child_process** — spawning and managing project processes
+## Tech Stack
 
----
-
-## 🎨 Customization
-
-Edit `src/index.html` CSS variables at the top to change the color scheme:
-
-```css
-:root {
-  --accent-1: #a78bfa;   /* Purple — primary accent */
-  --accent-2: #38bdf8;   /* Blue */
-  --accent-3: #fb7185;   /* Pink/red */
-  --accent-green: #4ade80; /* Running indicator */
-}
-```
+- Electron.
+- Vanilla HTML/CSS/JS.
+- Electron Builder.
+- Node.js `child_process` for project and terminal processes.

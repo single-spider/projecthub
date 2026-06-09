@@ -2345,7 +2345,12 @@ function renderTerminalGit(body) {
 }
 
 function renderTerminalContext(body) {
-  const wanted = ['AGENTS.md', 'README.md', 'docs/HANDOVER.md', 'docs/ROADMAP.md', 'package.json', '.env'];
+  const wanted = [
+    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.cursorrules',
+    'README.md', 'docs/HANDOVER.md', 'docs/ROADMAP.md',
+    'docs/RUNBOOK.md', 'docs/PROMPTS.md', 'prompts/README.md',
+    'runbooks/README.md', 'package.json', '.env',
+  ];
   const matches = wanted
     .map(name => terminalTree.find(file => file.type === 'file' && file.path.replace(/\\/g, '/') === name))
     .filter(Boolean);
