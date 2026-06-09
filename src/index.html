@@ -317,6 +317,21 @@
     border-radius: 6px;
     padding: 4px 6px;
   }
+  .card-badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .card-badge {
+    font-size: 10px; font-weight: 700; padding: 3px 7px;
+    border-radius: 6px; border: 1px solid rgba(255,255,255,0.1);
+    color: var(--text-secondary); background: rgba(255,255,255,0.05);
+  }
+  .health-badge.ok { color: var(--accent-green); border-color: rgba(74,222,128,0.28); background: rgba(74,222,128,0.1); }
+  .health-badge.fail { color: var(--accent-3); border-color: rgba(251,113,133,0.28); background: rgba(251,113,133,0.1); }
+  .health-badge.checking { color: var(--accent-orange); border-color: rgba(251,146,60,0.28); background: rgba(251,146,60,0.1); }
+  .favorite-btn {
+    width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+    border: 1px solid var(--glass-border); background: var(--glass-bg);
+    color: var(--text-muted); cursor: pointer; font-size: 13px;
+  }
+  .favorite-btn.active { color: var(--accent-orange); border-color: rgba(251,146,60,0.35); background: rgba(251,146,60,0.12); }
 
   .card-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
   .card-tag {
@@ -675,6 +690,11 @@
 
   .form-row { display: flex; gap: 10px; }
   .form-row .form-group { flex: 1; }
+  .form-check {
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text-secondary); font-size: 12px; font-weight: 600;
+  }
+  .form-check input { width: auto; }
 
   .path-picker { display: flex; gap: 8px; }
   .path-picker .form-input { flex: 1; }
@@ -726,12 +746,14 @@
   #toast.info { border-color: rgba(56,189,248,0.3); color: var(--accent-2); }
 
   /* ── Stats bar ── */
-  .stats-bar { display: flex; gap: 16px; flex-shrink: 0; margin-bottom: 4px; }
+  .stats-bar { display: flex; gap: 10px; flex-wrap: wrap; flex-shrink: 0; margin-bottom: 4px; }
   .stat-pill {
     display: flex; align-items: center; gap: 6px;
     background: var(--glass-bg); border: 1px solid var(--glass-border);
     border-radius: 8px; padding: 6px 12px; font-size: 12px;
   }
+  .stat-pill.action { cursor: pointer; }
+  .stat-pill.action:hover { background: var(--glass-hover); color: var(--text-primary); }
   .stat-pill .stat-val { font-weight: 700; color: var(--text-primary); }
   .stat-pill .stat-lbl { color: var(--text-muted); }
 
@@ -818,6 +840,13 @@
       </div>
       <div class="tag-list" id="tag-filters"></div>
 
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Groups</div>
+      </div>
+      <div class="tag-list" id="group-filters"></div>
+
       <div class="sidebar-footer">
         <button class="add-project-btn" onclick="openAddModal()">＋ Add Project</button>
       </div>
@@ -834,6 +863,9 @@
             <div class="view-subtitle" id="project-count">Loading…</div>
           </div>
           <div class="view-header-right">
+            <button class="grid-btn" onclick="importProjects()" title="Import">Import</button>
+            <button class="grid-btn" onclick="exportProjects()" title="Export">Export</button>
+            <button class="grid-btn" onclick="openSettings()" title="Settings">Settings</button>
             <button class="grid-btn active" id="gridBtn" onclick="setLayout('grid')" title="Grid">⊞ Grid</button>
             <button class="grid-btn" id="listBtn" onclick="setLayout('list')" title="List">☰ List</button>
           </div>
@@ -852,6 +884,7 @@
             <button class="output-action-btn run" id="output-run-btn" onclick="runCurrentOutputProject()">Run</button>
             <button class="output-action-btn stop" id="output-stop-btn" onclick="stopCurrentOutputProject()">Stop</button>
             <button class="output-action-btn restart" id="output-restart-btn" onclick="restartCurrentOutputProject()">Restart</button>
+            <button class="sort-btn" onclick="exportCurrentOutputLog()" title="Export Log">Export Log</button>
             <button class="sort-btn" onclick="clearOutput()" title="Clear">🗑 Clear</button>
           </div>
         </div>
@@ -981,6 +1014,7 @@
         <select class="form-select" id="f-type">
           <option value="python">🐍 Python</option>
           <option value="node">⬡ Node.js</option>
+          <option value="docker">Docker Compose</option>
           <option value="web">🌐 Web (HTML)</option>
           <option value="pyqt">🖼 PyQt/Tkinter</option>
           <option value="shell">🔧 Shell Script</option>
@@ -997,6 +1031,20 @@
           <option value="pink">Pink</option>
           <option value="cyan">Cyan</option>
         </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Group / Workspace</label>
+      <input class="form-input" id="f-group" placeholder="frontend, ai tools, client site"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Health Check</label>
+        <input class="form-input" id="f-health" placeholder="http://localhost:3000 or 3000"/>
+        <div class="form-error" id="err-health"></div>
+      </div>
+      <div class="form-group" style="flex:0 0 130px;display:flex;align-items:flex-end;padding-bottom:10px">
+        <label class="form-check"><input type="checkbox" id="f-favorite"/> Favorite</label>
       </div>
     </div>
     <div class="form-group">
@@ -1025,6 +1073,35 @@
   </div>
 </div>
 
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settings-overlay" onclick="closeSettings(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-title">Settings</div>
+    <div class="form-group">
+      <label class="form-label">Default Terminal Shell</label>
+      <input class="form-input" id="s-shell" placeholder="Leave blank for system default"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Log Retention</label>
+        <input class="form-input" id="s-log-retention" type="number" min="100" max="5000" step="100"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Startup View</label>
+        <select class="form-select" id="s-startup-view">
+          <option value="projects">Projects</option>
+          <option value="output">Running / Output</option>
+          <option value="terminal">Terminal</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
+      <button class="btn-save" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
 <!-- Context Menu -->
 <div class="ctx-menu" id="ctx-menu">
   <div class="ctx-item" onclick="ctxRestart()">Restart Project</div>
@@ -1032,6 +1109,10 @@
   <div class="ctx-item" onclick="ctxViewOutput()">📋 View Output</div>
   <div class="ctx-item" onclick="ctxOpenFolder()">📁 Open Folder</div>
   <div class="ctx-item" onclick="ctxOpenTerminal()">⌨ Open in Terminal</div>
+  <div class="ctx-item" onclick="ctxOpenHealth()">Open Health</div>
+  <div class="ctx-item" onclick="ctxToggleFavorite()">Toggle Favorite</div>
+  <div class="ctx-item" onclick="ctxRunGroup()">Run Group</div>
+  <div class="ctx-item" onclick="ctxStopGroup()">Stop Group</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" onclick="ctxEdit()">✏ Edit</div>
   <div class="ctx-item danger" onclick="ctxDelete()">🗑 Delete</div>
@@ -1050,10 +1131,14 @@ let processMeta = {};
 let processLogSaveTimer = null;
 let processOutputs = {};   // id → lines[]
 let processResources = {};
+let appSettings = {};
 let currentOutputId = null;
 let currentLayout = 'grid';
 let activeTypeFilter = null;
 let activeTagFilter = null;
+let activeGroupFilter = null;
+let activeFavoriteFilter = false;
+let recentProjectIds = [];
 let ctxTarget = null;
 let editingId = null;
 let termHistory = [];
@@ -1067,6 +1152,8 @@ let terminalTree = [];
 let terminalSelectedFile = '';
 let terminalPreview = null;
 let terminalGitInfo = null;
+let healthStatuses = {};
+let healthTimer = null;
 
 const COLORS = {
   purple: { bg:'rgba(167,139,250,0.15)', border:'rgba(167,139,250,0.3)', icon:'linear-gradient(135deg,#a78bfa,#7c3aed)', text:'#a78bfa' },
@@ -1077,13 +1164,16 @@ const COLORS = {
   cyan:   { bg:'rgba(34,211,238,0.15)',  border:'rgba(34,211,238,0.3)', icon:'linear-gradient(135deg,#22d3ee,#0891b2)', text:'#22d3ee' },
 };
 
-const TYPE_ICONS = { python:'🐍', node:'⬡', web:'🌐', pyqt:'🖼', shell:'🔧', other:'📦' };
+const TYPE_ICONS = { python:'🐍', node:'⬡', docker:'▦', web:'🌐', pyqt:'🖼', shell:'🔧', other:'📦' };
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
-const MAX_PROCESS_LOG_ENTRIES = 1000;
+let MAX_PROCESS_LOG_ENTRIES = 1000;
 
 async function init() {
+  appSettings = await window.api.getSettings() || {};
+  MAX_PROCESS_LOG_ENTRIES = Math.max(100, Math.min(5000, Number(appSettings.logRetention) || 1000));
   projects = await window.api.getProjects() || [];
+  loadRecentProjects();
   await hydrateMissingProjectPresets();
   loadSavedProcessLogs(await window.api.getProcessLogs());
   renderAll();
@@ -1093,8 +1183,10 @@ async function init() {
   buildTermProjectOptions();
   await refreshTerminalContext();
   newTerminal();
+  applyStartupView();
 
   window.api.onProcessOutput(({ id, data, type }) => {
+    rememberDetectedHealthUrl(id, data);
     rememberProcessOutput(id, data, type);
     if (currentOutputId === id) appendOutput(data, type);
     updateRunningBadge();
@@ -1106,6 +1198,8 @@ async function init() {
     setProjectState(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
     finishCurrentRun(id, stateBeforeExit === 'stopping' || code === 0 ? 'stopped' : 'failed');
     clearProcessResource(id);
+    delete healthStatuses[id];
+    updateProjectBadges(id);
     setLastRun(id, code === 0 || stateBeforeExit === 'stopping' ? 'success' : 'failed', code);
     rememberProcessOutput(id, `\n[Process exited with code ${code}]\n`, 'system');
     if (currentOutputId === id) appendOutput(`\n[Process exited with code ${code}]\n`, 'system');
@@ -1126,8 +1220,9 @@ async function init() {
   });
 
   document.addEventListener('click', () => hideContextMenu());
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+  document.addEventListener('keydown', handleGlobalKeydown);
   setInterval(() => { if (currentOutputId) renderOutputDetails(currentOutputId); }, 1000);
+  startHealthChecks();
 }
 
 // ─── Project helpers ──────────────────────────────────────────────────────────
@@ -1251,17 +1346,134 @@ async function saveAll() {
   await window.api.saveProjects(projects);
 }
 
+function normalizeImportedProject(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const name = String(raw.name || '').trim();
+  const projectPath = String(raw.path || '').trim();
+  const command = String(raw.command || '').trim();
+  if (!name || !projectPath || !command) return null;
+
+  return {
+    id: String(raw.id || genId()),
+    name,
+    icon: String(raw.icon || '').trim(),
+    desc: String(raw.desc || '').trim(),
+    path: projectPath,
+    type: String(raw.type || 'other'),
+    color: COLORS[raw.color] ? raw.color : 'purple',
+    group: String(raw.group || '').trim(),
+    favorite: Boolean(raw.favorite),
+    healthUrl: String(raw.healthUrl || '').trim(),
+    command,
+    presets: Array.isArray(raw.presets)
+      ? raw.presets.filter(p => p?.name && p?.command).map(p => ({ name: String(p.name), command: String(p.command) }))
+      : [],
+    env: raw.env && typeof raw.env === 'object' && !Array.isArray(raw.env) ? raw.env : {},
+    tags: Array.isArray(raw.tags) ? raw.tags.map(String).filter(Boolean) : [],
+    addedAt: Number(raw.addedAt) || Date.now(),
+  };
+}
+
+async function exportProjects() {
+  const res = await window.api.exportProjects(projects);
+  if (res?.canceled) return;
+  toast(res?.success ? 'Projects exported' : `Export failed: ${res?.error || 'Unknown error'}`, res?.success ? 'success' : 'error');
+}
+
+async function importProjects() {
+  const res = await window.api.importProjects();
+  if (res?.canceled) return;
+  if (!res?.success) {
+    toast(`Import failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+
+  const existingIds = new Set(projects.map(p => p.id));
+  const existingPaths = new Set(projects.map(p => (p.path || '').toLowerCase()).filter(Boolean));
+  let imported = 0;
+  let skipped = 0;
+
+  (res.projects || []).forEach(raw => {
+    const project = normalizeImportedProject(raw);
+    if (!project) {
+      skipped += 1;
+      return;
+    }
+
+    const pathKey = project.path.toLowerCase();
+    if (pathKey && existingPaths.has(pathKey)) {
+      skipped += 1;
+      return;
+    }
+
+    if (existingIds.has(project.id)) project.id = genId();
+    existingIds.add(project.id);
+    existingPaths.add(pathKey);
+    projects.push(project);
+    imported += 1;
+  });
+
+  if (imported) await saveAll();
+  buildFilters();
+  buildTermProjectOptions();
+  renderAll();
+  updateBadges();
+  toast(`Imported ${imported} project${imported === 1 ? '' : 's'}${skipped ? `, skipped ${skipped}` : ''}`, imported ? 'success' : 'info');
+}
+
+function openSettings() {
+  document.getElementById('s-shell').value = appSettings.defaultShell || '';
+  document.getElementById('s-log-retention').value = Number(appSettings.logRetention) || MAX_PROCESS_LOG_ENTRIES;
+  document.getElementById('s-startup-view').value = appSettings.startupView || 'projects';
+  document.getElementById('settings-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('s-shell')?.focus(), 0);
+}
+
+function closeSettings(e) {
+  if (!e || e.target === document.getElementById('settings-overlay')) {
+    document.getElementById('settings-overlay').classList.remove('open');
+  }
+}
+
+async function saveSettings() {
+  const logRetention = Math.max(100, Math.min(5000, Number(document.getElementById('s-log-retention').value) || 1000));
+  appSettings = {
+    defaultShell: document.getElementById('s-shell').value.trim(),
+    logRetention,
+    startupView: document.getElementById('s-startup-view').value,
+  };
+  MAX_PROCESS_LOG_ENTRIES = logRetention;
+  const saved = await window.api.saveSettings(appSettings);
+  closeSettings();
+  toast(saved ? 'Settings saved' : 'Settings could not be saved', saved ? 'success' : 'error');
+}
+
+function applyStartupView() {
+  const view = appSettings.startupView || 'projects';
+  if (view !== 'projects') {
+    switchView(view, document.querySelector(`.nav-item[data-view="${view}"]`));
+  }
+}
+
 function renderAll() {
   let list = [...projects];
   const q = document.getElementById('searchInput').value.toLowerCase().trim();
 
   if (activeTypeFilter) list = list.filter(p => p.type === activeTypeFilter);
   if (activeTagFilter)  list = list.filter(p => (p.tags||[]).includes(activeTagFilter));
+  if (activeGroupFilter) list = list.filter(p => (p.group || '').trim() === activeGroupFilter);
+  if (activeFavoriteFilter) list = list.filter(p => p.favorite);
   if (q) list = list.filter(p =>
     p.name.toLowerCase().includes(q) ||
     (p.desc||'').toLowerCase().includes(q) ||
-    (p.tags||[]).some(t => t.includes(q))
+    (p.group||'').toLowerCase().includes(q) ||
+    (p.command||'').toLowerCase().includes(q) ||
+    (p.tags||[]).some(t => t.toLowerCase().includes(q))
   );
+
+  list.sort((a, b) => Number(Boolean(b.favorite)) - Number(Boolean(a.favorite))
+    || recentProjectRank(a.id) - recentProjectRank(b.id)
+    || String(a.name || '').localeCompare(String(b.name || '')));
 
   filteredProjects = list;
   renderGrid(list);
@@ -1290,6 +1502,7 @@ function renderGrid(list) {
     const state = getProjectState(p.id);
     const isRunning = state === 'running' || state === 'starting' || state === 'stopping';
     const lastRun = getLastRunSummary(p.id);
+    const badges = renderProjectBadges(p.id);
     const tags = (p.tags||[]).slice(0,3).map(t =>
       `<span class="card-tag" style="background:${c.bg};border-color:${c.border};color:${c.text}">${t}</span>`
     ).join('');
@@ -1305,6 +1518,7 @@ function renderGrid(list) {
           <div class="card-name">${escHtml(p.name)}</div>
           <div class="card-path">${p.path ? escHtml(shortenPath(p.path)) : 'No path set'}</div>
         </div>
+        <button class="favorite-btn${p.favorite ? ' active' : ''}" onclick="event.stopPropagation();toggleFavorite('${p.id}')" title="Favorite">&#9733;</button>
         <div class="card-status ${state}">
           <div class="status-dot"></div>
           ${getStateLabel(state)}
@@ -1313,6 +1527,7 @@ function renderGrid(list) {
       <div class="card-desc">${escHtml(p.desc || 'No description')}</div>
       ${lastRun ? `<div class="card-last-run">${escHtml(lastRun)}</div>` : ''}
       <div class="card-resource" data-resource-id="${p.id}">${renderCardResource(p.id)}</div>
+      <div class="card-badges" data-health-id="${p.id}">${badges}</div>
       ${tags ? `<div class="card-tags">${tags}</div>` : ''}
       <div class="card-actions">
         ${isRunning
@@ -1328,13 +1543,17 @@ function renderGrid(list) {
 
 function updateStats() {
   const running = projects.filter(p => runningProjects.has(p.id)).length;
+  const favorites = projects.filter(p => p.favorite).length;
   const types = {};
   projects.forEach(p => { types[p.type||'other'] = (types[p.type||'other']||0)+1; });
   const topType = Object.entries(types).sort((a,b)=>b[1]-a[1])[0];
   document.getElementById('stats-bar').innerHTML = `
     <div class="stat-pill"><span class="stat-val">${projects.length}</span><span class="stat-lbl">Total</span></div>
     <div class="stat-pill"><span class="stat-val" style="color:var(--accent-green)">${running}</span><span class="stat-lbl">Running</span></div>
+    <div class="stat-pill"><span class="stat-val" style="color:var(--accent-orange)">${favorites}</span><span class="stat-lbl">Favorites</span></div>
     ${topType ? `<div class="stat-pill"><span class="stat-val">${TYPE_ICONS[topType[0]]||'📦'}</span><span class="stat-lbl">${topType[1]} ${topType[0]}</span></div>` : ''}
+    ${activeGroupFilter ? `<div class="stat-pill action" onclick="runGroup('${escJs(activeGroupFilter)}')"><span class="stat-val">Run</span><span class="stat-lbl">${escHtml(activeGroupFilter)}</span></div>` : ''}
+    ${activeGroupFilter ? `<div class="stat-pill action" onclick="stopGroup('${escJs(activeGroupFilter)}')"><span class="stat-val">Stop</span><span class="stat-lbl">${escHtml(activeGroupFilter)}</span></div>` : ''}
   `;
 }
 
@@ -1375,6 +1594,34 @@ function renderCardResource(id) {
   const sample = processResources[id]?.current;
   if (!sample) return '<span>CPU --</span><span>RAM --</span>';
   return `<span>CPU ${formatCpu(sample.cpu)}</span><span>RAM ${formatMemory(sample.memoryMb)}</span>`;
+}
+
+function getHealthTarget(project) {
+  return (project?.healthUrl || processMeta[project?.id]?.detectedHealthUrl || '').trim();
+}
+
+function renderHealthBadge(id) {
+  const project = projects.find(p => p.id === id);
+  const target = getHealthTarget(project);
+  if (!target) return '';
+  const health = healthStatuses[id];
+  const state = health?.checking ? 'checking' : health?.success ? 'ok' : health ? 'fail' : 'checking';
+  const label = health?.checking ? 'Checking' : health?.success ? 'Healthy' : health ? 'Down' : 'Health';
+  return `<button class="card-badge health-badge ${state}" onclick="event.stopPropagation();openProjectHealth('${id}')" title="${escAttr(target)}">${label}</button>`;
+}
+
+function renderProjectBadges(id) {
+  const project = projects.find(p => p.id === id);
+  if (!project) return '';
+  return [
+    project.group ? `<span class="card-badge">${escHtml(project.group)}</span>` : '',
+    renderHealthBadge(id),
+  ].filter(Boolean).join('');
+}
+
+function updateProjectBadges(id) {
+  const el = document.querySelector(`.card-badges[data-health-id="${id}"]`);
+  if (el) el.innerHTML = renderProjectBadges(id);
 }
 
 function updateProjectResourceBadge(id) {
@@ -1440,6 +1687,8 @@ function renderRunDetails(id) {
   const project = projects.find(p => p.id === id);
   const run = processMeta[id]?.currentRun;
   const sample = processResources[id]?.current;
+  const health = healthStatuses[id];
+  const healthTarget = getHealthTarget(project);
   const rows = [
     ['Project', project?.name || id || 'None'],
     ['State', run?.status ? getStateLabel(run.status) : getStateLabel(getProjectState(id))],
@@ -1450,6 +1699,7 @@ function renderRunDetails(id) {
     ['Path', run?.cwd || project?.path || '--'],
     ['PID', sample?.pid || run?.pid || '--'],
     ['Processes', sample?.processCount || '--'],
+    ['Health', healthTarget ? (health?.success ? `Healthy ${health.status || ''}`.trim() : health?.checking ? 'Checking' : health?.error || 'Down') : '--'],
   ];
 
   const el = document.getElementById('run-details');
@@ -1553,6 +1803,7 @@ function updateProjectCardStatus(id, running) {
   const statusEl = card.querySelector('.card-status');
   if (statusEl) { statusEl.className = `card-status ${state}`; statusEl.innerHTML = `<div class="status-dot"></div>${getStateLabel(state)}`; }
   updateProjectResourceBadge(id);
+  updateProjectBadges(id);
   const actions = card.querySelector('.card-actions');
   if (actions) {
     actions.innerHTML = `
@@ -1587,11 +1838,141 @@ function buildFilters() {
           onclick="toggleTagFilter('${t}')">
       ${t}
     </span>`).join('');
+
+  const groups = [...new Set(projects.map(p => (p.group || '').trim()).filter(Boolean))].sort();
+  document.getElementById('group-filters').innerHTML = `
+    <span class="tag-chip${activeFavoriteFilter?' active':''}" onclick="toggleFavoriteFilter()">★ Favorites</span>
+    ${groups.map(group => `
+      <span class="tag-chip${activeGroupFilter===group?' active':''}" onclick="toggleGroupFilter('${escJs(group)}')">
+        ${escHtml(group)}
+      </span>`).join('')}`;
 }
 
 function toggleTypeFilter(t) { activeTypeFilter = activeTypeFilter === t ? null : t; buildFilters(); renderAll(); }
 function toggleTagFilter(t)  { activeTagFilter  = activeTagFilter  === t ? null : t; buildFilters(); renderAll(); }
+function toggleGroupFilter(group) { activeGroupFilter = activeGroupFilter === group ? null : group; buildFilters(); renderAll(); }
+function toggleFavoriteFilter() { activeFavoriteFilter = !activeFavoriteFilter; buildFilters(); renderAll(); }
 function filterProjects() { renderAll(); }
+
+function loadRecentProjects() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('projecthubRecentProjectIds') || '[]');
+    recentProjectIds = Array.isArray(parsed) ? parsed.filter(Boolean).slice(0, 20) : [];
+  } catch (e) {
+    recentProjectIds = [];
+  }
+}
+
+function saveRecentProjects() {
+  localStorage.setItem('projecthubRecentProjectIds', JSON.stringify(recentProjectIds.slice(0, 20)));
+}
+
+function recentProjectRank(id) {
+  const index = recentProjectIds.indexOf(id);
+  return index === -1 ? 9999 : index;
+}
+
+function markProjectRecent(id) {
+  recentProjectIds = [id, ...recentProjectIds.filter(existing => existing !== id)].slice(0, 20);
+  saveRecentProjects();
+}
+
+function isTypingInField() {
+  const el = document.activeElement;
+  return el && ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName);
+}
+
+function handleGlobalKeydown(e) {
+  if (e.key === 'Escape') {
+    closeModal();
+    closeSettings();
+    return;
+  }
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+    e.preventDefault();
+    document.getElementById('searchInput')?.focus();
+    return;
+  }
+
+  if (e.key === '/' && !isTypingInField()) {
+    e.preventDefault();
+    document.getElementById('searchInput')?.focus();
+    return;
+  }
+
+  if (e.key === 'Enter' && !isTypingInField() && document.getElementById('view-projects').classList.contains('active')) {
+    const first = filteredProjects[0];
+    if (first) runProject(first.id);
+  }
+}
+
+async function toggleFavorite(id) {
+  const project = projects.find(p => p.id === id);
+  if (!project) return;
+  project.favorite = !project.favorite;
+  await saveAll();
+  buildFilters();
+  renderAll();
+}
+
+async function runGroup(group) {
+  const groupProjects = projects.filter(p => (p.group || '').trim() === group);
+  for (const project of groupProjects) {
+    if (getProjectState(project.id) === 'stopped' || getProjectState(project.id) === 'failed') {
+      await runProject(project.id);
+    }
+  }
+}
+
+async function stopGroup(group) {
+  const groupProjects = projects.filter(p => (p.group || '').trim() === group && runningProjects.has(p.id));
+  for (const project of groupProjects) {
+    await stopProject(project.id);
+  }
+}
+
+function rememberDetectedHealthUrl(id, data) {
+  const project = projects.find(p => p.id === id);
+  if (!project || project.healthUrl) return;
+  const match = String(data || '').match(/https?:\/\/(?:localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(?::\d{2,5})?(?:\/[^\s"'<>]*)?/i);
+  if (!match) return;
+  const detected = match[0].replace('0.0.0.0', 'localhost');
+  processMeta[id] = { ...(processMeta[id] || {}), detectedHealthUrl: detected };
+  scheduleProcessLogSave();
+  updateProjectBadges(id);
+  refreshHealthChecks();
+}
+
+function startHealthChecks() {
+  clearInterval(healthTimer);
+  refreshHealthChecks();
+  healthTimer = setInterval(refreshHealthChecks, 6000);
+}
+
+async function refreshHealthChecks() {
+  const candidates = projects.filter(project => runningProjects.has(project.id) && getHealthTarget(project));
+  candidates.forEach(project => {
+    healthStatuses[project.id] = { ...(healthStatuses[project.id] || {}), checking: true };
+    updateProjectBadges(project.id);
+  });
+
+  await Promise.all(candidates.map(async (project) => {
+    const target = getHealthTarget(project);
+    const result = await window.api.checkHealth(target);
+    healthStatuses[project.id] = { ...result, checking: false, checkedAt: Date.now() };
+    updateProjectBadges(project.id);
+    if (currentOutputId === project.id) renderOutputDetails(project.id);
+  }));
+}
+
+async function openProjectHealth(id) {
+  const project = projects.find(p => p.id === id);
+  const target = getHealthTarget(project);
+  if (!target) return;
+  const opened = await window.api.openExternal(target);
+  if (!opened) toast('Health target is not a URL or local port.', 'error');
+}
 
 // ─── Run/Stop ─────────────────────────────────────────────────────────────────
 async function runProject(id) {
@@ -1603,6 +1984,7 @@ async function runProject(id) {
   if (!command) { toast('Run command is required. Edit the project first.', 'error'); return; }
   if (!p.path) { toast('Project folder is required. Edit the project first.', 'error'); return; }
 
+  markProjectRecent(id);
   setProjectState(id, 'starting');
 
   const pathCheck = await window.api.validateProjectPath(p.path);
@@ -1622,6 +2004,7 @@ async function runProject(id) {
     toast(`▶ ${p.name} started`, 'success');
     switchView('output', document.querySelector('.nav-item[data-view="output"]'));
     setOutputProject(id);
+    refreshHealthChecks();
   } else {
     setProjectState(id, 'failed');
     setLastRun(id, 'failed', null);
@@ -1655,6 +2038,8 @@ async function stopProject(id) {
   setProjectState(id, 'stopped');
   finishCurrentRun(id, 'stopped');
   clearProcessResource(id);
+  delete healthStatuses[id];
+  updateProjectBadges(id);
   setLastRun(id, 'stopped', null);
   const p = projects.find(x => x.id === id);
   toast(`⏹ ${p?.name || 'Project'} stopped`, 'info');
@@ -1696,6 +2081,7 @@ async function openFolder(id) {
 
 function handleCardClick(id) {
   // Switch to output if running, else edit
+  markProjectRecent(id);
   if (runningProjects.has(id)) {
     switchView('output', document.querySelector('.nav-item[data-view="output"]'));
     setOutputProject(id);
@@ -1754,6 +2140,23 @@ function clearOutput() {
   }
   document.getElementById('output-container').innerHTML = '';
   if (currentOutputId) renderOutputDetails(currentOutputId);
+}
+
+async function exportCurrentOutputLog() {
+  if (!currentOutputId) {
+    toast('Select a project output first.', 'error');
+    return;
+  }
+
+  const project = projects.find(p => p.id === currentOutputId);
+  const entries = processOutputs[currentOutputId] || [];
+  const res = await window.api.exportProcessLog({
+    project,
+    entries,
+    meta: processMeta[currentOutputId] || {},
+  });
+  if (res?.canceled) return;
+  toast(res?.success ? 'Process log exported' : `Log export failed: ${res?.error || 'Unknown error'}`, res?.success ? 'success' : 'error');
 }
 
 function handleOutputInput(e) {
@@ -2035,6 +2438,9 @@ function editProject(id) {
   document.getElementById('f-path').value = p.path||'';
   document.getElementById('f-type').value = p.type||'python';
   document.getElementById('f-color').value = p.color||'purple';
+  document.getElementById('f-group').value = p.group||'';
+  document.getElementById('f-health').value = p.healthUrl||'';
+  document.getElementById('f-favorite').checked = Boolean(p.favorite);
   document.getElementById('f-cmd').value = p.command||'';
   document.getElementById('f-presets').value = formatCommandPresets(p.presets);
   document.getElementById('f-env').value = formatEnvVars(p.env);
@@ -2045,9 +2451,10 @@ function editProject(id) {
 }
 
 function clearForm() {
-  ['f-name','f-icon','f-desc','f-path','f-cmd','f-presets','f-env','f-tags'].forEach(id => document.getElementById(id).value = '');
+  ['f-name','f-icon','f-desc','f-path','f-group','f-health','f-cmd','f-presets','f-env','f-tags'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-type').value = 'python';
   document.getElementById('f-color').value = 'purple';
+  document.getElementById('f-favorite').checked = false;
 }
 
 function closeModal(e) {
@@ -2084,7 +2491,7 @@ async function autoDetect() {
 }
 
 function setFieldError(field, message) {
-  const inputIds = { name: 'f-name', path: 'f-path', cmd: 'f-cmd', presets: 'f-presets', env: 'f-env' };
+  const inputIds = { name: 'f-name', path: 'f-path', cmd: 'f-cmd', presets: 'f-presets', env: 'f-env', health: 'f-health' };
   const input = document.getElementById(inputIds[field]);
   const error = document.getElementById(`err-${field}`);
   if (!input || !error) return;
@@ -2095,7 +2502,7 @@ function setFieldError(field, message) {
 }
 
 function clearFormErrors() {
-  ['name','path','cmd','presets','env'].forEach(field => setFieldError(field, ''));
+  ['name','path','cmd','presets','env','health'].forEach(field => setFieldError(field, ''));
 }
 
 function parseCommandPresets(text) {
@@ -2175,6 +2582,19 @@ function formatEnvVars(env) {
   return Object.entries(env).map(([key, value]) => `${key}=${value}`).join('\n');
 }
 
+function isValidHealthTarget(value) {
+  const target = String(value || '').trim();
+  if (!target) return true;
+  if (/^\d{2,5}$/.test(target)) return Number(target) > 0 && Number(target) <= 65535;
+  if (/^(localhost|127\.0\.0\.1|0\.0\.0\.0):\d{2,5}$/i.test(target)) return true;
+  try {
+    const url = new URL(target);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch (e) {
+    return false;
+  }
+}
+
 async function validateProjectForm() {
   clearFormErrors();
 
@@ -2185,6 +2605,7 @@ async function validateProjectForm() {
   const presetsResult = parseCommandPresets(presetsText);
   const envText = document.getElementById('f-env').value;
   const envResult = parseEnvVars(envText);
+  const healthTarget = document.getElementById('f-health').value.trim();
   const errors = [];
 
   if (!name) errors.push(['name', 'Project name is required.']);
@@ -2192,6 +2613,7 @@ async function validateProjectForm() {
   if (!command) errors.push(['cmd', 'Run command is required.']);
   if (presetsResult.errors.length) errors.push(['presets', presetsResult.errors[0]]);
   if (envResult.errors.length) errors.push(['env', envResult.errors[0]]);
+  if (!isValidHealthTarget(healthTarget)) errors.push(['health', 'Use a URL, localhost:port, or a port number.']);
 
   if (projectPath) {
     const pathCheck = await window.api.validateProjectPath(projectPath);
@@ -2223,6 +2645,9 @@ async function saveProject() {
     path: document.getElementById('f-path').value.trim(),
     type: document.getElementById('f-type').value,
     color: document.getElementById('f-color').value,
+    group: document.getElementById('f-group').value.trim(),
+    favorite: document.getElementById('f-favorite').checked,
+    healthUrl: document.getElementById('f-health').value.trim(),
     command: document.getElementById('f-cmd').value.trim(),
     presets,
     env,
@@ -2243,6 +2668,7 @@ async function saveProject() {
   buildFilters();
   buildTermProjectOptions();
   updateBadges();
+  refreshHealthChecks();
   toast(editingId ? '✏ Project updated' : '✅ Project added', 'success');
 }
 
@@ -2252,8 +2678,8 @@ function showCtxMenu(e, id) {
   ctxTarget = id;
   const m = document.getElementById('ctx-menu');
   m.classList.add('open');
-  m.style.left = Math.min(e.clientX, window.innerWidth-170) + 'px';
-  m.style.top = Math.min(e.clientY, window.innerHeight-200) + 'px';
+  m.style.left = Math.max(8, Math.min(e.clientX, window.innerWidth-190)) + 'px';
+  m.style.top = Math.max(8, Math.min(e.clientY, window.innerHeight-320)) + 'px';
 }
 function hideContextMenu() { document.getElementById('ctx-menu').classList.remove('open'); }
 function ctxRun() { hideContextMenu(); if(ctxTarget) runProject(ctxTarget); }
@@ -2261,6 +2687,20 @@ function ctxRestart() { hideContextMenu(); if(ctxTarget) restartProject(ctxTarge
 function ctxViewOutput() { hideContextMenu(); if(ctxTarget){ switchView('output',document.querySelector('.nav-item[data-view="output"]')); setOutputProject(ctxTarget); } }
 function ctxOpenFolder() { hideContextMenu(); if(ctxTarget) openFolder(ctxTarget); }
 function ctxEdit() { hideContextMenu(); if(ctxTarget) editProject(ctxTarget); }
+function ctxOpenHealth() { hideContextMenu(); if(ctxTarget) openProjectHealth(ctxTarget); }
+function ctxToggleFavorite() { hideContextMenu(); if(ctxTarget) toggleFavorite(ctxTarget); }
+function ctxRunGroup() {
+  hideContextMenu();
+  const group = projects.find(x=>x.id===ctxTarget)?.group;
+  if (group) runGroup(group);
+  else toast('Project has no group.', 'info');
+}
+function ctxStopGroup() {
+  hideContextMenu();
+  const group = projects.find(x=>x.id===ctxTarget)?.group;
+  if (group) stopGroup(group);
+  else toast('Project has no group.', 'info');
+}
 function ctxOpenTerminal() {
   hideContextMenu();
   const p = projects.find(x=>x.id===ctxTarget);

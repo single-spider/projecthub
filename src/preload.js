@@ -7,13 +7,20 @@ contextBridge.exposeInMainWorld('api', {
   getProcessLogs: () => ipcRenderer.invoke('get-process-logs'),
   saveProcessLogs: (logs) => ipcRenderer.invoke('save-process-logs', logs),
   clearProcessLog: (id) => ipcRenderer.invoke('clear-process-log', id),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings) => ipcRenderer.invoke('save-settings', settings),
 
   // Dialogs
   pickFolder: () => ipcRenderer.invoke('pick-folder'),
   pickFile: () => ipcRenderer.invoke('pick-file'),
   openInExplorer: (p) => ipcRenderer.invoke('open-in-explorer', p),
+  openExternal: (target) => ipcRenderer.invoke('open-external', target),
   detectProject: (p) => ipcRenderer.invoke('detect-project', p),
   validateProjectPath: (p) => ipcRenderer.invoke('validate-project-path', p),
+  exportProjects: (projects) => ipcRenderer.invoke('export-projects', projects),
+  importProjects: () => ipcRenderer.invoke('import-projects'),
+  exportProcessLog: (payload) => ipcRenderer.invoke('export-process-log', payload),
+  checkHealth: (target) => ipcRenderer.invoke('check-health', target),
 
   // Process management
   launchProject: (opts) => ipcRenderer.invoke('launch-project', opts),
