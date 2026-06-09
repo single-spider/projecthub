@@ -20,6 +20,7 @@ ProjectHub now covers the core launcher, configuration, workflow, and persistenc
 - [x] Favorites and recent-project ranking.
 - [x] Optional URL/port health checks, output URL detection, and open-in-browser action.
 - [x] App settings for default terminal shell, log retention, and startup view.
+- [x] Agent CLI detection for Codex, Claude Code, Aider, Gemini CLI, and Goose when available on PATH.
 
 ## Remaining Gaps
 
@@ -31,13 +32,13 @@ Why it matters: interactive prompts, password entry, curses-style UIs, resize-se
 
 Likely path: evaluate `node-pty` with `xterm.js` in a dedicated branch. This should not be mixed with ordinary roadmap work because native module support affects packaging on Windows, macOS, and Linux.
 
-### Agent CLI Presets
+### Agent Preset Templates
 
-Current state: projects can store custom command presets, and the Terminal context panel now surfaces common agent context files.
+Current state: projects can store custom command presets, auto-detect adds installed common agent CLIs as quick presets, and the Terminal context panel surfaces common agent context files.
 
 Why it matters: AI workflows often use repeatable project-scoped commands such as `codex`, `claude`, `aider`, `gemini`, or `goose`.
 
-Likely path: detect installed agent CLIs from PATH and offer optional quick presets without hard-coding them into every project.
+Likely path: add user-editable agent preset templates for custom tools and preferred flags.
 
 ### Deeper Settings
 

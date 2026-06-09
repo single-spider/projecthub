@@ -52,6 +52,7 @@ This roadmap tracks ProjectHub as a lightweight local development command center
 - [x] Add persisted log-retention setting.
 - [x] Add persisted startup view setting.
 - [x] Add terminal context discovery for docs, runbooks, prompt files, and common agent context files.
+- [x] Detect common agent CLIs on PATH and offer quick presets during project auto-detect.
 
 ## Remaining / Deferred
 
@@ -61,7 +62,7 @@ These are intentionally left as future slices because they either require native
 - Terminal resize events and full-screen terminal program support.
 - Per-command log partitioning instead of project-level logs.
 - Theme preference and default projects folder settings.
-- Agent CLI discovery and one-click agent presets for Codex, Claude Code, Aider, Gemini CLI, Goose, or custom tools.
+- Custom agent preset templates beyond detected CLIs.
 - Richer saved filter sets beyond the current type, tag, group, favorite, and search filters.
 - Build/package verification on Windows, macOS, and Linux.
 

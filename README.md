@@ -13,6 +13,7 @@ ProjectHub is a lightweight Electron desktop app for managing local development 
 - Auto-detection for Python, Node, web folders, and Docker Compose files.
 - `.env` loading, per-project environment variables, Python virtualenv detection, and project-local `node_modules/.bin`.
 - Command presets from `package.json`, custom presets, and Docker Compose presets.
+- Optional agent CLI presets for Codex, Claude Code, Aider, Gemini CLI, and Goose when installed.
 - Type, tag, group, favorite, and text filters.
 - Lightweight workspaces through project groups, including Run Group and Stop Group.
 - Favorites and recent-project ranking.
@@ -36,6 +37,7 @@ ProjectHub is a lightweight Electron desktop app for managing local development 
 - [x] `.env` and per-project environment variables.
 - [x] Command presets.
 - [x] Docker Compose detection.
+- [x] Agent CLI preset detection.
 - [x] Project import/export.
 - [x] Process log export.
 - [x] Groups/workspaces and favorites.

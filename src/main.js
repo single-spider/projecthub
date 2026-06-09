@@ -23,6 +23,7 @@ const MAX_PROJECT_TREE_ENTRIES = 500;
 const MAX_TEXT_PREVIEW_BYTES = 120 * 1024;
 const HEALTH_TIMEOUT_MS = 3500;
 const DOCKER_COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'];
+const AGENT_CLIS = ['codex', 'claude', 'aider', 'gemini', 'goose'];
 const TREE_IGNORE_DIRS = new Set([
   '.git', 'node_modules', '.venv', 'venv', 'env', 'dist', 'build', 'out',
   '.next', '.expo', '.turbo', '.cache', '__pycache__',
@@ -516,6 +517,39 @@ function buildDockerComposePresets(composeFile) {
   ];
 }
 
+function commandExists(command) {
+  const lookup = process.platform === 'win32' ? 'where.exe' : 'which';
+  return new Promise((resolve) => {
+    execFile(lookup, [command], { windowsHide: true, timeout: 1200 }, (err, stdout) => {
+      resolve(!err && Boolean(String(stdout || '').trim()));
+    });
+  });
+}
+
+async function detectAgentPresets() {
+  const checks = await Promise.all(AGENT_CLIS.map(async (command) => ({
+    command,
+    available: await commandExists(command),
+  })));
+
+  return checks
+    .filter(result => result.available)
+    .map(result => ({
+      name: `agent ${result.command}`,
+      command: result.command,
+    }));
+}
+
+function appendUniquePresets(target, presets) {
+  const seen = new Set(target.map(preset => String(preset.name || '').toLowerCase()));
+  presets.forEach((preset) => {
+    const key = String(preset.name || '').toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    target.push(preset);
+  });
+}
+
 function findPythonVirtualEnv(cwd) {
   for (const dirName of ['.venv', 'venv', 'env']) {
     const envPath = path.join(cwd, dirName);
@@ -820,13 +854,15 @@ ipcMain.handle('detect-project', async (_, folderPath) => {
 
     if (composeFile) {
       const composePresets = buildDockerComposePresets(composeFile);
-      info.presets = [...info.presets, ...composePresets];
+      appendUniquePresets(info.presets, composePresets);
       if (info.type === 'unknown') {
         info.type = 'docker';
         info.entryFile = composeFile;
         info.runCommand = composePresets[0].command;
       }
     }
+
+    appendUniquePresets(info.presets, await detectAgentPresets());
 
     return info;
   } catch(e) {

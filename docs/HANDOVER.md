@@ -27,6 +27,7 @@ Project configuration is implemented:
 - Node `package.json` scripts are detected as presets.
 - Custom command presets are stored as project metadata.
 - Docker Compose files are detected and compose presets are added.
+- Common agent CLIs on PATH are detected and offered as quick presets.
 
 Workflow upgrades are implemented:
 
@@ -128,7 +129,7 @@ Evaluate real terminal emulation in a branch:
 - resize events
 - packaging impact on Windows, macOS, and Linux
 
-Agent CLI presets should follow PTY evaluation, because tools like Codex CLI, Claude Code, Aider, Gemini CLI, and Goose behave better with real terminal semantics.
+Custom agent preset templates should follow PTY evaluation, because tools like Codex CLI, Claude Code, Aider, Gemini CLI, and Goose behave better with real terminal semantics.
 
 ## Manual Test Checklist
 
