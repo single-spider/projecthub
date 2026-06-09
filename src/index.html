@@ -508,19 +508,19 @@
   }
 
   /* ── Terminal view ── */
-  #view-terminal { padding: 0; }
-  #terminal-wrapper { flex: 1; display: flex; flex-direction: column; }
+  #view-terminal { padding: 0; min-height: 0; }
+  #terminal-wrapper { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; }
   .term-toolbar {
     display: flex; align-items: center; gap: 8px; padding: 10px 16px;
     border-bottom: 1px solid var(--glass-border); background: rgba(255,255,255,0.03); flex-shrink: 0;
   }
   .terminal-workspace {
     flex: 1; min-height: 0; display: grid;
-    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
   }
   .terminal-side {
-    min-height: 0; display: flex; flex-direction: column;
-    border-right: 1px solid var(--glass-border);
+    min-height: 0; display: flex; flex-direction: column; grid-column: 2;
+    border-left: 1px solid var(--glass-border);
     background: rgba(255,255,255,0.025);
   }
   .terminal-side-header {
@@ -557,7 +557,7 @@
   .terminal-side-body::-webkit-scrollbar { width: 5px; }
   .terminal-side-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
   .terminal-main {
-    min-width: 0; min-height: 0; display: flex; flex-direction: column;
+    min-width: 0; min-height: 0; display: flex; flex-direction: column; grid-column: 1;
   }
   .tree-row {
     display: flex; align-items: center; gap: 6px;
@@ -622,8 +622,8 @@
   .term-line.err { color: var(--accent-3); }
   @media (max-width: 980px) {
     .terminal-workspace { grid-template-columns: 1fr; overflow-y: auto; }
-    .terminal-side { min-height: 300px; border-right: 0; border-bottom: 1px solid var(--glass-border); }
-    .terminal-main { min-height: 430px; }
+    .terminal-side { grid-column: 1; min-height: 300px; border-left: 0; border-top: 1px solid var(--glass-border); }
+    .terminal-main { grid-column: 1; min-height: 430px; }
   }
 
   /* ── Modal / drawer ── */
@@ -899,7 +899,6 @@
           <div class="out-line system">— Select a running project to see output —</div>
         </div>
             </div>
-          </div>
         </div>
         <div class="output-input-bar">
           <span class="output-prompt">›</span>
@@ -1640,7 +1639,19 @@ async function runProjectPreset(id, presetIndex) {
 
 async function stopProject(id) {
   setProjectState(id, 'stopping');
-  await window.api.stopProject(id);
+  const stopped = await window.api.stopProject(id);
+  if (!stopped) {
+    setProjectState(id, 'failed');
+    setLastRun(id, 'failed', null);
+    rememberProcessOutput(id, '\n[Stop failed: ProjectHub could not find or terminate the tracked process]\n', 'system');
+    if (currentOutputId === id) {
+      appendOutput('\n[Stop failed: ProjectHub could not find or terminate the tracked process]\n', 'system');
+      renderOutputDetails(id);
+    }
+    renderAll();
+    toast('Stop failed. The process may already be gone or stale outside ProjectHub.', 'error');
+    return;
+  }
   setProjectState(id, 'stopped');
   finishCurrentRun(id, 'stopped');
   clearProcessResource(id);
@@ -1655,12 +1666,25 @@ async function restartProject(id) {
   const p = projects.find(x => x.id === id);
   if (!p) return;
   if (getProjectState(id) === 'starting' || getProjectState(id) === 'stopping') return;
+  const wasActive = runningProjects.has(id);
 
   rememberProcessOutput(id, `\n[Restarting: ${p.name}]\n`, 'system');
   if (currentOutputId === id) appendOutput(`\n[Restarting: ${p.name}]\n`, 'system');
 
   setProjectState(id, 'stopping');
-  await window.api.stopProject(id);
+  const stopped = await window.api.stopProject(id);
+  if (wasActive && !stopped) {
+    setProjectState(id, 'failed');
+    setLastRun(id, 'failed', null);
+    rememberProcessOutput(id, '\n[Restart failed: ProjectHub could not stop the tracked process]\n', 'system');
+    if (currentOutputId === id) {
+      appendOutput('\n[Restart failed: ProjectHub could not stop the tracked process]\n', 'system');
+      renderOutputDetails(id);
+    }
+    renderAll();
+    toast('Restart failed because stop did not complete.', 'error');
+    return;
+  }
   setProjectState(id, 'stopped');
   await runProject(id);
 }

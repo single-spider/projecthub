@@ -8,6 +8,9 @@ let mainWindow;
 const runningProcesses = new Map();
 const resourceSamples = new Map();
 const resourceSampleTimers = new Map();
+let cleanupPromise = null;
+let quitAfterCleanup = false;
+let quitCleanupPromise = null;
 const DATA_FILE = path.join(app.getPath('userData'), 'projects.json');
 const LOGS_FILE = path.join(app.getPath('userData'), 'process-logs.json');
 const MAX_LOG_ENTRIES_PER_PROJECT = 1000;
@@ -41,14 +44,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'index.html'));
 
   mainWindow.on('closed', () => {
-    runningProcesses.forEach((proc) => terminateProcessTree(proc));
-    terminals.forEach((proc) => terminateProcessTree(proc));
-    resourceSampleTimers.forEach((timer) => clearInterval(timer));
-    runningProcesses.clear();
-    terminals.clear();
-    resourceSampleTimers.clear();
-    resourceSamples.clear();
     mainWindow = null;
+    cleanupAllProcesses();
   });
 }
 
@@ -56,6 +53,18 @@ app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('before-quit', (event) => {
+  if (quitAfterCleanup) return;
+
+  event.preventDefault();
+  if (!quitCleanupPromise) {
+    quitCleanupPromise = cleanupAllProcesses().finally(() => {
+      quitAfterCleanup = true;
+      app.quit();
+    });
+  }
 });
 
 app.on('activate', () => {
@@ -403,7 +412,8 @@ function buildLaunchOptions(cwd, command, projectEnv = {}) {
 }
 
 function terminateProcessTree(proc) {
-  if (!proc || !proc.pid) return Promise.resolve(false);
+  const pid = Number(typeof proc === 'number' ? proc : proc?.pid);
+  if (!pid) return Promise.resolve(false);
 
   if (process.platform !== 'win32') {
     try {
@@ -414,10 +424,37 @@ function terminateProcessTree(proc) {
   }
 
   return new Promise((resolve) => {
-    execFile('taskkill', ['/PID', String(proc.pid), '/T', '/F'], (err) => {
-      resolve(!err);
+    execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 10000 }, (err, stdout, stderr) => {
+      if (!err) {
+        resolve(true);
+        return;
+      }
+
+      const message = `${err.message || ''}\n${stdout || ''}\n${stderr || ''}`;
+      resolve(/not found|not running|no running instance/i.test(message));
     });
   });
+}
+
+function cleanupAllProcesses() {
+  if (cleanupPromise) return cleanupPromise;
+
+  cleanupPromise = (async () => {
+    const processes = [...runningProcesses.values(), ...terminals.values()]
+      .filter((proc) => proc?.pid);
+
+    runningProcesses.clear();
+    terminals.clear();
+    resourceSampleTimers.forEach((timer) => clearInterval(timer));
+    resourceSampleTimers.clear();
+    resourceSamples.clear();
+
+    await Promise.allSettled(processes.map((proc) => terminateProcessTree(proc)));
+  })().finally(() => {
+    cleanupPromise = null;
+  });
+
+  return cleanupPromise;
 }
 
 function stopResourceSampler(id) {
