@@ -986,3 +986,24 @@ button { font: inherit; }
     animation: none !important;
   }
 }
+
+
+/* Compatibility overrides for the pre-persistent prototype rules above. */
+.ring { animation: none; }
+.wedge:hover,
+.wedge:focus-visible {
+  transform: none;
+}
+.context {
+  transition: opacity 220ms ease, transform 260ms cubic-bezier(.2,.75,.2,1);
+}
+.launcher[data-motion="prewake"] .context,
+.launcher[data-motion="waking"] .context {
+  opacity: 0;
+  transform: translateX(16px);
+}
+.launcher[data-motion="ready"] .context,
+.launcher[data-motion="engaging"] .context {
+  opacity: 1;
+  transform: none;
+}
