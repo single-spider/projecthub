@@ -1007,3 +1007,109 @@ button { font: inherit; }
   opacity: 1;
   transform: none;
 }
+
+
+/* Video-review pass: child mechanisms now originate at the selected parent. */
+.ring.branch-deploy {
+  transform-origin: 500px 500px;
+}
+.ring.branch-deploy .carrier-bed {
+  stroke-dasharray: .10 .90;
+  transform-origin: 500px 500px;
+  animation: branchCarrierUnspool 690ms cubic-bezier(.16,.78,.18,1) both;
+}
+.ring.branch-deploy .carrier-track {
+  transform-origin: 500px 500px;
+  animation: branchTrackIndex 660ms cubic-bezier(.16,.78,.18,1) both;
+}
+.ring.branch-deploy .carrier-highlight {
+  transform-origin: 500px 500px;
+  animation: branchHighlightSweep 720ms 70ms cubic-bezier(.16,.78,.18,1) both;
+}
+
+@keyframes branchCarrierUnspool {
+  0% {
+    stroke-dasharray: .055 .945;
+    stroke-dashoffset: .03;
+    transform: rotate(var(--source-angle)) scale(.965);
+    opacity: .32;
+  }
+  42% {
+    stroke-dasharray: .42 .58;
+    opacity: .82;
+  }
+  100% {
+    stroke-dasharray: 1 0;
+    stroke-dashoffset: 0;
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes branchTrackIndex {
+  0% {
+    stroke-dashoffset: .88;
+    transform: rotate(var(--source-angle)) scale(.97);
+    opacity: .18;
+  }
+  52% { opacity: .92; }
+  100% {
+    stroke-dashoffset: 0;
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes branchHighlightSweep {
+  0% {
+    stroke-dashoffset: .72;
+    transform: rotate(var(--source-angle));
+    opacity: 0;
+  }
+  44% { opacity: .9; }
+  100% {
+    stroke-dashoffset: 0;
+    transform: rotate(0deg);
+    opacity: .52;
+  }
+}
+
+.ring.branch-deploy .wedge {
+  animation-name: moduleFanDeploy;
+  animation-duration: 650ms;
+  animation-timing-function: cubic-bezier(.15,.78,.18,1);
+  animation-fill-mode: both;
+  animation-delay: calc(115ms + var(--stagger) * 42ms);
+  transform-origin: 500px 500px;
+}
+
+@keyframes moduleFanDeploy {
+  0% {
+    opacity: 0;
+    transform: rotate(var(--fan-rotation)) translate(var(--deploy-x), var(--deploy-y)) scale(.96);
+    filter: brightness(.42);
+  }
+  28% {
+    opacity: .86;
+    filter: brightness(.72);
+  }
+  68% {
+    opacity: 1;
+    transform: rotate(calc(var(--fan-rotation) * .12)) translate(var(--overshoot-x), var(--overshoot-y)) scale(1.006);
+    filter: brightness(.98);
+  }
+  84% {
+    transform: rotate(calc(var(--fan-rotation) * -.025)) translate(var(--settle-x), var(--settle-y)) scale(.998);
+  }
+  100% {
+    opacity: 1;
+    transform: rotate(0deg) translate(0,0) scale(1);
+    filter: brightness(1);
+  }
+}
+
+/* The active parent should visibly act as a mechanical gate while its child carrier deploys. */
+.launcher[data-motion="deploying"] .wedge.selected .wedge-carriage {
+  filter: brightness(1.13) drop-shadow(0 0 4px rgba(255,171,63,.2));
+}
+.launcher[data-motion="deploying"] .wedge.selected .plate-active {
+  opacity: .9;
+}
