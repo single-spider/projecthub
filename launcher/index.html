@@ -22,13 +22,25 @@
       <div id="machine" class="machine" tabindex="0" aria-label="ProjectHub radial menu">
         <div class="machine-aura"></div>
         <img class="chassis chassis-back" src="../assets/chassis.png" alt="" draggable="false" />
+
         <div class="rail rail-a"></div>
         <div class="rail rail-b"></div>
         <div class="rail rail-c"></div>
+
+        <div class="mechanism mechanism-outer" aria-hidden="true">
+          <span class="mechanism-segment s1"></span>
+          <span class="mechanism-segment s2"></span>
+          <span class="mechanism-segment s3"></span>
+          <span class="mechanism-segment s4"></span>
+        </div>
+
         <svg id="radial" viewBox="0 0 1000 1000" role="group" aria-label="Navigation choices"></svg>
+
         <img class="chassis chassis-front" src="../assets/chassis.png" alt="" draggable="false" />
 
         <button id="core" class="core" type="button" aria-label="Summon ProjectHub">
+          <span class="core-collar core-collar-outer"></span>
+          <span class="core-collar core-collar-inner"></span>
           <img class="rotor" src="../assets/core-rotor.png" alt="" draggable="false" />
           <span class="core-shutter"></span>
           <span class="core-lens"></span>
