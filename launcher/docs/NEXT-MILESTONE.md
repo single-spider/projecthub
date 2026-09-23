@@ -10,7 +10,7 @@ This milestone should improve the existing radial prototype without adding real 
 
 - **Stage A — Persistent part model:** implemented on `launcher-v02`, pending desktop visual review.
 - **Stage B — Mechanical wake sequence:** first implementation complete on `launcher-v02`, pending timing/material tuning from desktop capture.
-- **Stage C onward:** not yet treated as complete. Some radial hover groundwork now exists, but it should be judged during the next visual pass rather than marked done prematurely.
+- **Stage C — Physically correct module hover:** implemented, pending desktop review. Hover motion is radial rather than screen-global.\n- **Stage D — Branch-causal deployment:** second implementation pass complete, pending desktop review. Child carrier/module motion now originates from the selected parent sector.\n- **Stage E — Branch-local geometry experiment:** variant 1 is now implemented: a full carrier mechanically fed from the selected parent. A partial-arc variant remains to be compared before choosing a direction.\n- **Stage F onward:** not yet treated as complete.
 
 The milestone is intentionally visual-first. Terminal, editor, Git, AI, project management, documentation management, and other eventual actions remain mocked.
 
