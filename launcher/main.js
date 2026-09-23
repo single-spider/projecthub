@@ -51,7 +51,15 @@ function setMode(nextMode, summon = false) {
   } else {
     win.showInactive();
   }
-  if (summon && mode === 'expanded') win.webContents.send('launcher-summon');
+  if (summon && mode === 'expanded') {
+    // Give Windows/Electron a compositor beat after the bounds change so the
+    // user sees the machine wake instead of only the finished expanded state.
+    setTimeout(() => {
+      if (win && !win.isDestroyed() && mode === 'expanded') {
+        win.webContents.send('launcher-summon');
+      }
+    }, 170);
+  }
 }
 
 function createWindow() {
