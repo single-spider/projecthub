@@ -1,7 +1,16 @@
 {
-  "name": "projecthub-radial-launcher-prototype",
+  "name": "projecthub-radial-launcher",
   "private": true,
-  "version": "0.1.0",
-  "description": "Isolated Windows visual prototype; no ProjectHub actions are connected.",
-  "main": "main.js"
+  "version": "0.2.0",
+  "description": "High-fidelity mechanical radial launcher prototype for ProjectHub.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "capture": "electron . --capture-test",
+    "test:tree": "node tests/tree.test.js",
+    "test": "npm run test:tree"
+  },
+  "devDependencies": {
+    "electron": "^36.0.0"
+  }
 }
