@@ -15,6 +15,21 @@ The renderer uses the shared visual assets from the repository root directly:
 
 The SVG renderer preserves up to three visible hierarchy levels at once, highlights the active ancestry path, adds physical plate gaps/fasteners/shadows, and keeps the center as the current navigation identity.
 
+This is still a structural visual prototype. The next milestone is specifically about converting the current animated radial UI into a mechanically causal object that visibly unlocks, deploys, connects, retracts, and settles.
+
+## Motion rule
+
+The governing visual rule from this point forward is:
+
+> Major movement should look like a physical mechanism changing configuration, not like ordinary UI elements animating.
+
+See:
+
+- [Mechanical motion specification](docs/MOTION-SPEC.md)
+- [Mechanical unfolding milestone](docs/NEXT-MILESTONE.md)
+- [Visual scope](docs/VISUAL-SCOPE.md)
+- [Build notes](docs/BUILD-NOTES.md)
+
 ## Run
 
 ```bash
@@ -52,4 +67,4 @@ npm test
 
 ## Scope boundary
 
-The leaf commands are mocks. The current milestone is about geometry, materials, mechanical hierarchy, motion, hover/selection feedback, deep navigation, and desktop presence. Functional integrations come later.
+The leaf commands are mocks. The current work is about geometry, materials, mechanical hierarchy, motion, hover/selection feedback, deep navigation, and desktop presence. Functional integrations come later.
