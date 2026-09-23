@@ -441,7 +441,7 @@
       record.group.classList.remove('parked');
       record.group.classList.add('deploying', kind === 'wake' ? 'wake-deploy' : 'branch-deploy');
     });
-    await delay(kind === 'wake' ? 760 : 590);
+    await delay(kind === 'wake' ? 840 : 820);
     records.forEach(record => record.group.classList.remove('deploying', 'wake-deploy', 'branch-deploy'));
   }
 
