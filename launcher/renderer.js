@@ -325,6 +325,8 @@
       const hover = vector(depth === 0 ? 10 : 8, mid);
       const selected = vector(depth === 0 ? 6 : 5, mid);
       const deploy = vector(depth === 0 ? -23 : -19, mid);
+      const overshoot = vector(depth === 0 ? 3.6 : 2.8, mid);
+      const settle = vector(depth === 0 ? -1.3 : -1.0, mid);
       const lock = vector(-3, mid);
       const fastenerA = polar(parts.geometry.r1 + 13, mid);
       const fastenerB = polar(parts.geometry.r2 - 13, mid);
@@ -337,6 +339,10 @@
       wedge.style.setProperty('--select-y', selected.y.toFixed(2) + 'px');
       wedge.style.setProperty('--deploy-x', deploy.x.toFixed(2) + 'px');
       wedge.style.setProperty('--deploy-y', deploy.y.toFixed(2) + 'px');
+      wedge.style.setProperty('--overshoot-x', overshoot.x.toFixed(2) + 'px');
+      wedge.style.setProperty('--overshoot-y', overshoot.y.toFixed(2) + 'px');
+      wedge.style.setProperty('--settle-x', settle.x.toFixed(2) + 'px');
+      wedge.style.setProperty('--settle-y', settle.y.toFixed(2) + 'px');
       wedge.style.setProperty('--lock-x', lock.x.toFixed(2) + 'px');
       wedge.style.setProperty('--lock-y', lock.y.toFixed(2) + 'px');
       wedge.style.setProperty('--stagger', String(index));
@@ -346,6 +352,7 @@
         wedge.querySelector('.' + className).setAttribute('d', d);
       });
       wedge.querySelector('.selection-trace').setAttribute('d', trace);
+      wedge.querySelector('.selection-trace').setAttribute('pathLength', '1');
       wedge.querySelector('.fastener-a').setAttribute('cx', fastenerA.x.toFixed(2));
       wedge.querySelector('.fastener-a').setAttribute('cy', fastenerA.y.toFixed(2));
       wedge.querySelector('.fastener-core-a').setAttribute('cx', fastenerA.x.toFixed(2));
