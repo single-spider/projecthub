@@ -1,0 +1,29 @@
+name: Launcher checks
+
+on:
+  push:
+    branches:
+      - launcher-v02
+    paths:
+      - "launcher/**"
+      - ".github/workflows/launcher-checks.yml"
+  pull_request:
+    paths:
+      - "launcher/**"
+      - ".github/workflows/launcher-checks.yml"
+
+jobs:
+  launcher-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: launcher
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run launcher checks
+        run: npm test
