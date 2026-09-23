@@ -1,14 +1,72 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ProjectHub · Launcher</title><link rel="stylesheet" href="styles.css"></head>
-<body><main id="launcher" class="launcher dormant" aria-label="ProjectHub launcher">
-  <header class="brand"><span class="eyebrow">PROJECTHUB LAUNCHER</span><span class="tagline">MECHANICAL CONTEXT TREE</span></header>
-  <section class="stage" aria-live="polite"><div class="machine-shadow"></div><div id="machine" class="machine" tabindex="0">
-    <div class="track track-a"></div><div class="track track-b"></div><div class="aperture"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-    <svg id="radial" viewBox="0 0 760 760" role="group" aria-label="Navigation choices"></svg>
-    <button id="core" class="core" type="button" aria-label="Back to previous level"><span class="core-mark">✦</span><strong id="core-label">PROJECTHUB</strong><small id="core-hint">SUMMON</small></button>
-  </div><aside id="context" class="context" hidden><div class="context-kicker">SELECTED MODULE</div><div class="context-title"><span id="context-icon">⌁</span><span id="context-label">—</span></div><p id="context-description">Hover a plate to inspect its function.</p><div class="context-rule"></div><span class="context-meta">ACTION / TOOL</span></aside></section>
-  <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
-  <button id="demo-open" class="demo-open" type="button">Open launcher <kbd>Ctrl + Space</kbd></button>
-  <footer><span>FOCUS · BUILD · PROGRESS</span><span class="status"><b></b><em id="status-text">DORMANT</em></span></footer>
-</main><script src="mock-data.js"></script><script src="tree.js"></script><script src="renderer.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ProjectHub · Radial Launcher</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="launcher" class="launcher dormant" aria-label="ProjectHub radial launcher">
+    <div class="environment" aria-hidden="true"></div>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="grain" aria-hidden="true"></div>
 
+    <header class="brand" aria-hidden="true">
+      <span class="brand-title">PROJECTHUB LAUNCHER</span>
+      <span class="brand-subtitle">MECHANICAL CONTEXT TREE</span>
+      <span class="brand-line"></span>
+    </header>
+
+    <section class="stage" aria-live="polite">
+      <div id="machine" class="machine" tabindex="0" aria-label="ProjectHub radial menu">
+        <div class="machine-aura"></div>
+        <img class="chassis chassis-back" src="../assets/chassis.png" alt="" draggable="false" />
+        <div class="rail rail-a"></div>
+        <div class="rail rail-b"></div>
+        <div class="rail rail-c"></div>
+        <svg id="radial" viewBox="0 0 1000 1000" role="group" aria-label="Navigation choices"></svg>
+        <img class="chassis chassis-front" src="../assets/chassis.png" alt="" draggable="false" />
+
+        <button id="core" class="core" type="button" aria-label="Summon ProjectHub">
+          <img class="rotor" src="../assets/core-rotor.png" alt="" draggable="false" />
+          <span class="core-shutter"></span>
+          <span class="core-lens"></span>
+          <span class="core-copy">
+            <strong id="core-label">PROJECTHUB</strong>
+            <small id="core-hint">SUMMON</small>
+          </span>
+        </button>
+      </div>
+
+      <aside id="context" class="context" hidden>
+        <span class="context-connector"></span>
+        <div class="context-kicker">SELECTED MODULE</div>
+        <div class="context-heading">
+          <span id="context-icon" class="context-icon"></span>
+          <span id="context-label">PROJECTHUB</span>
+        </div>
+        <p id="context-description">Choose a plate to inspect this branch.</p>
+        <div class="context-rule"></div>
+        <div class="context-meta"><span>ACTION / TOOL</span><span id="context-state">READY</span></div>
+      </aside>
+    </section>
+
+    <nav id="crumbs" class="crumbs" aria-label="Breadcrumb"></nav>
+
+    <button id="demo-open" class="demo-open" type="button">SUMMON <kbd>Ctrl + Alt + Space</kbd></button>
+    <button id="quit" class="quit" type="button">QUIT</button>
+
+    <footer class="footer" aria-hidden="true">
+      <span>FOCUS · BUILD · PROGRESS</span>
+      <span class="status"><b></b><em id="status-text">DORMANT</em></span>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="mock-data.js"></script>
+  <script src="tree.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>
