@@ -1093,11 +1093,11 @@ button { font: inherit; }
   }
   68% {
     opacity: 1;
-    transform: rotate(calc(var(--fan-rotation) * .12)) translate(var(--overshoot-x), var(--overshoot-y)) scale(1.006);
+    transform: rotate(var(--fan-near)) translate(var(--overshoot-x), var(--overshoot-y)) scale(1.006);
     filter: brightness(.98);
   }
   84% {
-    transform: rotate(calc(var(--fan-rotation) * -.025)) translate(var(--settle-x), var(--settle-y)) scale(.998);
+    transform: rotate(var(--fan-recoil)) translate(var(--settle-x), var(--settle-y)) scale(.998);
   }
   100% {
     opacity: 1;
