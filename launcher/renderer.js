@@ -357,6 +357,8 @@
       wedge.style.setProperty('--lock-y', lock.y.toFixed(2) + 'px');
       wedge.style.setProperty('--stagger', String(index));
       wedge.style.setProperty('--fan-rotation', fanRotation.toFixed(2) + 'deg');
+      wedge.style.setProperty('--fan-near', (fanRotation * .12).toFixed(2) + 'deg');
+      wedge.style.setProperty('--fan-recoil', (fanRotation * -.025).toFixed(2) + 'deg');
 
       wedge.querySelector('.plate-bed').setAttribute('d', d);
       ['plate-under', 'plate-face', 'plate-shade', 'plate-sheen', 'plate-edge', 'plate-inner-edge', 'plate-active'].forEach(className => {
