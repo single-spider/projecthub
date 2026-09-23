@@ -825,17 +825,11 @@ button { font: inherit; }
   }
   46% {
     opacity: 1;
-    transform: translate(
-      calc(var(--deploy-x) * -.14),
-      calc(var(--deploy-y) * -.14)
-    );
+    transform: translate(var(--overshoot-x), var(--overshoot-y));
     filter: brightness(.92);
   }
   77% {
-    transform: translate(
-      calc(var(--deploy-x) * .055),
-      calc(var(--deploy-y) * .055)
-    );
+    transform: translate(var(--settle-x), var(--settle-y));
   }
   100% {
     opacity: 1;
@@ -871,7 +865,6 @@ button { font: inherit; }
 
 .selection-trace {
   stroke-dasharray: .12 .055;
-  path-length: 1;
 }
 .ring.deploying .selection-trace,
 .launcher[data-motion="locking"] .wedge.locking .selection-trace,
