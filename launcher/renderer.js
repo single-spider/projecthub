@@ -221,6 +221,14 @@
     return { geometry, children: children.slice(0, count), count, gap, span, start };
   }
 
+  function selectedMidAngle(level, depth) {
+    if (!level || !level.selectedId) return null;
+    const parts = ringParts(level, depth);
+    const index = parts.children.findIndex(node => node.id === level.selectedId);
+    if (index < 0) return null;
+    return parts.start + (index + .5) * parts.span;
+  }
+
   function createWedge(node) {
     const wedge = createSvg('g', {
       class: 'wedge',
@@ -277,7 +285,7 @@
       'aria-hidden': 'true'
     });
     group.innerHTML = `
-      <circle class="carrier-bed" cx="500" cy="500"/>
+      <circle class="carrier-bed" cx="500" cy="500" pathLength="1"/>
       <circle class="carrier-track" cx="500" cy="500" pathLength="1"/>
       <circle class="carrier-highlight" cx="500" cy="500" pathLength="1"/>
       <g class="wedge-layer"></g>`;
@@ -297,12 +305,13 @@
     return record;
   }
 
-  function updateRingGeometry(record, level, depth) {
+  function updateRingGeometry(record, level, depth, sourceAngle) {
     const parts = ringParts(level, depth);
     if (!parts.geometry) return;
     record.depth = depth;
     record.group.setAttribute('class', `ring depth-${depth}${record.group.classList.contains('parked') ? ' parked' : ''}${record.group.classList.contains('deploying') ? ' deploying' : ''}${record.group.classList.contains('retracting') ? ' retracting' : ''}`);
     record.group.dataset.depth = String(depth);
+    record.group.style.setProperty('--source-angle', ((sourceAngle == null ? 0 : sourceAngle)).toFixed(2) + 'deg');
 
     const midRadius = (parts.geometry.r1 + parts.geometry.r2) / 2;
     const carrierWidth = (parts.geometry.r2 - parts.geometry.r1) + 18;
@@ -328,6 +337,7 @@
       const overshoot = vector(depth === 0 ? 3.6 : 2.8, mid);
       const settle = vector(depth === 0 ? -1.3 : -1.0, mid);
       const lock = vector(-3, mid);
+      const fanRotation = sourceAngle == null ? 0 : (sourceAngle - mid);
       const fastenerA = polar(parts.geometry.r1 + 13, mid);
       const fastenerB = polar(parts.geometry.r2 - 13, mid);
       const trace = arcPath(parts.geometry.r2 - 3, a1 + 3, a2 - 3);
@@ -346,6 +356,7 @@
       wedge.style.setProperty('--lock-x', lock.x.toFixed(2) + 'px');
       wedge.style.setProperty('--lock-y', lock.y.toFixed(2) + 'px');
       wedge.style.setProperty('--stagger', String(index));
+      wedge.style.setProperty('--fan-rotation', fanRotation.toFixed(2) + 'deg');
 
       wedge.querySelector('.plate-bed').setAttribute('d', d);
       ['plate-under', 'plate-face', 'plate-shade', 'plate-sheen', 'plate-edge', 'plate-inner-edge', 'plate-active'].forEach(className => {
@@ -385,7 +396,9 @@
     desired.forEach((level, depth) => {
       const existed = ringRegistry.has(level.parentId);
       const record = ensureRing(level, depth);
-      updateRingGeometry(record, level, depth);
+      const parentLevel = depth > 0 ? desired[depth - 1] : null;
+      const sourceAngle = parentLevel ? selectedMidAngle(parentLevel, depth - 1) : null;
+      updateRingGeometry(record, level, depth, sourceAngle);
       record.group.classList.toggle('selected-parent', !!level.selectedId);
       record.group.setAttribute('aria-hidden', 'false');
 
@@ -531,6 +544,16 @@
   async function summon() {
     if (transitionLocked || controller.getState().isOpen) return;
     transitionLocked = true;
+
+    // When hosted by Electron, expand the transparent host first. The previous
+    // version animated while Windows was still resizing/compositing the small
+    // dormant window, which made the wake sequence effectively invisible.
+    if (host.setMode && lastMode !== 'expanded') {
+      lastMode = 'expanded';
+      await host.setMode('expanded');
+      await delay(135);
+    }
+
     controller.open();
     state = controller.getState();
     setMotion('prewake');
@@ -676,8 +699,11 @@
 
   if (host.onSummon) host.onSummon(summon);
   if (host.onMode) host.onMode(modeName => {
-    if (modeName === 'expanded' && !controller.getState().isOpen) summon();
-    if (modeName === 'dormant' && controller.getState().isOpen && !transitionLocked) collapseLauncher();
+    if (modeName === 'expanded') lastMode = 'expanded';
+    if (modeName === 'dormant') {
+      lastMode = 'dormant';
+      if (controller.getState().isOpen && !transitionLocked) collapseLauncher();
+    }
   });
   if (host.onHotkeyError) host.onHotkeyError(key => showToast(`Global shortcut unavailable: ${key}`));
 
