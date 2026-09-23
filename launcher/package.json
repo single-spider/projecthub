@@ -8,7 +8,9 @@
     "start": "electron .",
     "capture": "electron . --capture-test",
     "test:tree": "node tests/tree.test.js",
-    "test": "npm run test:tree"
+    "test": "npm run test:syntax && npm run test:tree && npm run test:visual",
+    "test:syntax": "node --check renderer.js && node --check main.js && node --check mock-data.js && node --check tree.js",
+    "test:visual": "node tests/visual-structure.test.js"
   },
   "devDependencies": {
     "electron": "^36.0.0"
