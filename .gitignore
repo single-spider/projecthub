@@ -1,1 +1,62 @@
-/node_modules
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+
+# Build output and packaged applications
+dist/
+out/
+release/
+*.asar
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.rpm
+*.msi
+
+# Environment files and local secrets
+.env
+.env.*
+!.env.example
+!tests/projecthub-env-test/.env
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Electron runtime data, caches, and logs
+.user-data/
+.user-data-smoke/
+*.log
+logs/
+process-logs.json
+projects.json
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Editor and operating system files
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Temporary files and archives
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+*.zip
+
+# Debug artifacts
+evidence/

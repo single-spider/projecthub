@@ -13,10 +13,19 @@
   "build": {
     "appId": "com.projecthub.app",
     "productName": "ProjectHub",
-    "files": ["src/**/*"],
-    "directories": { "output": "dist" },
+    "npmRebuild": false,
+    "files": [
+      "src/**/*",
+      "node_modules/@xterm/**/*",
+      "node_modules/node-pty/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "category": "Development"
     },
     "mac": {
@@ -24,11 +33,17 @@
       "category": "public.app-category.developer-tools"
     },
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "signAndEditExecutable": false
     }
   },
   "devDependencies": {
     "electron": "36.3.1",
     "electron-builder": "26.0.12"
+  },
+  "dependencies": {
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "node-pty": "^1.1.0"
   }
 }

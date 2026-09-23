@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>ProjectHub</title>
+<link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css" />
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap');
 
@@ -531,10 +532,11 @@
   }
   .terminal-workspace {
     flex: 1; min-height: 0; display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(280px, 380px);
+    grid-template-columns: minmax(220px, 300px) minmax(0, 1fr) minmax(300px, 380px);
+    grid-template-rows: minmax(0, 1fr) 300px;
   }
   .terminal-side {
-    min-height: 0; display: flex; flex-direction: column; grid-column: 2;
+    min-height: 0; display: flex; flex-direction: column; grid-column: 3; grid-row: 1 / 3;
     border-left: 1px solid var(--glass-border);
     background: rgba(255,255,255,0.025);
   }
@@ -572,7 +574,55 @@
   .terminal-side-body::-webkit-scrollbar { width: 5px; }
   .terminal-side-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
   .terminal-main {
-    min-width: 0; min-height: 0; display: flex; flex-direction: column; grid-column: 1;
+    min-width: 0; min-height: 0; display: flex; flex-direction: column; grid-column: 1 / 3; grid-row: 2;
+    border-top: 1px solid var(--glass-border);
+  }
+  .terminal-tree-pane {
+    min-height: 0; display: flex; flex-direction: column; grid-column: 1; grid-row: 1;
+    border-right: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.025);
+  }
+  .terminal-editor-pane {
+    min-width: 0; min-height: 0; display: flex; flex-direction: column; grid-column: 2; grid-row: 1;
+    background: rgba(0,0,0,0.12);
+  }
+  .workspace-pane-title {
+    display: flex; align-items: center; gap: 8px; min-height: 43px;
+    padding: 10px 12px; border-bottom: 1px solid var(--glass-border);
+  }
+  .workspace-pane-title h3 {
+    flex: 1; min-width: 0; font-size: 12px; font-weight: 800;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .workspace-action-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  .workspace-btn {
+    border: 1px solid var(--glass-border); background: var(--glass-bg);
+    color: var(--text-secondary); border-radius: 7px; padding: 5px 8px;
+    font-family: 'Syne', sans-serif; font-size: 11px; font-weight: 700;
+    cursor: pointer;
+  }
+  .workspace-btn:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .workspace-btn.primary { color: var(--accent-green); border-color: rgba(74,222,128,0.28); background: rgba(74,222,128,0.1); }
+  .workspace-btn.danger { color: var(--accent-3); border-color: rgba(251,113,133,0.28); background: rgba(251,113,133,0.1); }
+  .terminal-tree-body {
+    flex: 1; min-height: 0; overflow-y: auto; padding: 8px;
+  }
+  .editor-body {
+    flex: 1; min-height: 0; display: flex; flex-direction: column;
+  }
+  .editor-textarea {
+    flex: 1; width: 100%; resize: none; border: 0; outline: none;
+    background: transparent; color: rgba(255,255,255,0.84);
+    padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; line-height: 1.6; user-select: text;
+  }
+  .image-preview-wrap {
+    flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center;
+    padding: 16px; overflow: auto;
+  }
+  .image-preview-wrap img {
+    max-width: 100%; max-height: 100%; object-fit: contain;
+    border: 1px solid var(--glass-border); border-radius: 8px;
   }
   .tree-row {
     display: flex; align-items: center; gap: 6px;
@@ -581,7 +631,10 @@
     color: var(--text-secondary);
   }
   .tree-row:hover, .tree-row.active { background: var(--glass-hover); color: var(--text-primary); }
-  .tree-row.dir { color: var(--accent-orange); cursor: default; }
+  .tree-row.dir { color: var(--accent-orange); }
+  .tree-row.hidden { display: none; }
+  .tree-expander { width: 12px; color: var(--text-muted); text-align: center; flex-shrink: 0; }
+  .tree-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tree-indent { display: inline-block; flex: 0 0 auto; }
   .preview-code, .git-output, .context-list {
     white-space: pre-wrap; overflow-wrap: anywhere;
@@ -600,6 +653,21 @@
     font-size: 12px;
   }
   .context-chip:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .git-change {
+    display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 8px;
+    align-items: center; border: 1px solid var(--glass-border); border-radius: 7px;
+    background: var(--glass-bg); padding: 7px 8px; margin-bottom: 7px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  }
+  .git-change:hover { background: var(--glass-hover); }
+  .git-status-code { color: var(--accent-orange); font-weight: 700; }
+  .git-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .git-actions, .commit-row { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0 12px; }
+  .commit-input {
+    flex: 1; min-width: 170px; background: rgba(0,0,0,0.18); border: 1px solid var(--glass-border);
+    border-radius: 7px; color: var(--text-primary); padding: 7px 9px; outline: none;
+    font-family: 'Syne', sans-serif; font-size: 12px;
+  }
   .term-tab {
     display: flex; align-items: center; gap: 6px; padding: 5px 10px;
     border-radius: 7px; background: var(--glass-bg); border: 1px solid var(--glass-border);
@@ -613,12 +681,52 @@
     transition: all 0.15s;
   }
   .new-term-btn:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .term-select {
+    background: var(--glass-bg); border: 1px solid var(--glass-border);
+    border-radius: 7px; padding: 5px 8px; color: var(--text-secondary);
+    font-size: 12px; outline: none; cursor: pointer; max-width: 190px;
+  }
+  .term-select:hover { background: var(--glass-hover); color: var(--text-primary); }
+  .editor-tabs {
+    display: flex; gap: 4px; min-height: 34px; overflow-x: auto;
+    padding: 6px 8px; border-bottom: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.025);
+  }
+  .editor-tab {
+    display: flex; align-items: center; gap: 6px; max-width: 220px;
+    border: 1px solid var(--glass-border); border-radius: 7px;
+    background: var(--glass-bg); color: var(--text-secondary);
+    padding: 5px 8px; font-size: 11px; cursor: pointer;
+  }
+  .editor-tab.active { color: var(--accent-2); border-color: rgba(56,189,248,0.32); background: rgba(56,189,248,0.12); }
+  .editor-tab-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .editor-tab-close { color: var(--text-muted); font-size: 11px; }
+  .editor-tab-close:hover { color: var(--accent-3); }
 
   .terminal-area {
-    flex: 1; background: rgba(0,0,0,0.4); overflow-y: auto;
-    padding: 14px 16px; font-family: 'JetBrains Mono', monospace;
+    position: relative;
+    flex: 1; min-height: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4); overflow: hidden;
+    padding: 0; font-family: 'JetBrains Mono', monospace;
     font-size: 13px; line-height: 1.6; color: rgba(255,255,255,0.85);
   }
+  .terminal-area .xterm-session {
+    position: absolute; inset: 0;
+    width: 100%; height: 100%;
+    display: none;
+  }
+  .terminal-area .xterm-session.active { display: block; }
+  .terminal-area .xterm {
+    width: 100%; height: 100%;
+    padding: 10px;
+  }
+  .terminal-area .xterm-screen,
+  .terminal-area .xterm-helpers,
+  .terminal-area .xterm-text-layer,
+  .terminal-area .xterm-selection-layer,
+  .terminal-area .xterm-link-layer,
+  .terminal-area .xterm-cursor-layer { box-sizing: content-box; }
+  .terminal-area .xterm-viewport { background: transparent !important; }
   .terminal-area::-webkit-scrollbar { width: 5px; }
   .terminal-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 
@@ -636,9 +744,12 @@
   .term-line.cmd { color: var(--accent-2); }
   .term-line.err { color: var(--accent-3); }
   @media (max-width: 980px) {
-    .terminal-workspace { grid-template-columns: 1fr; overflow-y: auto; }
-    .terminal-side { grid-column: 1; min-height: 300px; border-left: 0; border-top: 1px solid var(--glass-border); }
-    .terminal-main { grid-column: 1; min-height: 430px; }
+    .terminal-workspace { grid-template-columns: 1fr; grid-template-rows: 220px minmax(260px, 1fr) 280px; overflow-y: auto; }
+    .terminal-tree-pane, .terminal-editor-pane, .terminal-main { grid-column: 1; }
+    .terminal-tree-pane { grid-row: 1; border-right: 0; border-bottom: 1px solid var(--glass-border); }
+    .terminal-editor-pane { grid-row: 2; }
+    .terminal-main { grid-row: 3; min-height: 0; }
+    .terminal-side { display: none; }
   }
 
   /* ── Modal / drawer ── */
@@ -778,6 +889,40 @@
 
   /* ── Option select inputs on dark bg ── */
   option { background: #1a1030; }
+
+  .git-section-title {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin: 12px 0 6px;
+    font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--text-muted);
+  }
+  .git-section-title span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-secondary);
+  }
+  .git-change.active {
+    background: rgba(56,189,248,0.13);
+    border-color: rgba(56,189,248,0.28);
+    color: var(--text-primary);
+  }
+  .git-actions {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin: 8px 0 10px;
+  }
+  .git-commit-row {
+    display: grid; grid-template-columns: 64px minmax(0, 1fr) auto;
+    gap: 8px; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .git-commit-row:last-child { border-bottom: 0; }
+  .git-commit-hash {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--accent-2);
+  }
+  .git-commit-subject {
+    min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 12px; color: var(--text-secondary);
+  }
 
   /* ── Animations ── */
   @keyframes fadeSlideIn { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:none; } }
@@ -946,31 +1091,48 @@
           <div class="term-toolbar">
             <div id="term-tabs-container" style="display:flex;gap:6px;flex:1;overflow-x:auto"></div>
             <button class="new-term-btn" onclick="newTerminal()" title="New Terminal">＋</button>
-            <select id="term-project-cwd" onchange="handleTerminalProjectChange()" style="background:var(--glass-bg);border:1px solid var(--glass-border);border-radius:7px;padding:5px 8px;color:var(--text-secondary);font-size:12px;outline:none;cursor:pointer">
+            <select class="term-select" id="term-preset-select" onchange="runSelectedTerminalPreset(this.value);this.value=''">
+              <option value="">Run preset…</option>
+            </select>
+            <select class="term-select" id="term-project-cwd" onchange="handleTerminalProjectChange()">
               <option value="">~ Home</option>
             </select>
           </div>
           <div class="terminal-workspace">
+            <div class="terminal-tree-pane">
+              <div class="workspace-pane-title">
+                <h3>Explorer</h3>
+                <button class="workspace-btn" onclick="createTerminalEntry('file')">File</button>
+                <button class="workspace-btn" onclick="createTerminalEntry('dir')">Folder</button>
+                <button class="workspace-btn" onclick="renameTerminalEntry()">Rename</button>
+                <button class="workspace-btn danger" onclick="deleteTerminalEntry()">Delete</button>
+                <button class="terminal-refresh" onclick="refreshTerminalContext()" title="Refresh">↻</button>
+              </div>
+              <div class="terminal-tree-body" id="terminal-tree-body"></div>
+            </div>
+            <div class="terminal-editor-pane">
+              <div class="workspace-pane-title">
+                <h3 id="terminal-editor-title">No file selected</h3>
+                <div class="workspace-action-row" id="terminal-editor-actions"></div>
+              </div>
+              <div class="editor-tabs" id="terminal-file-tabs"></div>
+              <div class="editor-body" id="terminal-editor-body">
+                <div class="terminal-panel-empty">Choose a project and open a file from Explorer.</div>
+              </div>
+            </div>
             <div class="terminal-side">
               <div class="terminal-side-header">
                 <div class="terminal-side-title" id="terminal-context-title">Project Context</div>
                 <button class="terminal-refresh" onclick="refreshTerminalContext()" title="Refresh">↻</button>
               </div>
               <div class="terminal-context-tabs">
-                <button class="terminal-context-tab active" data-term-panel="tree" onclick="setTerminalPanel('tree')">Tree</button>
-                <button class="terminal-context-tab" data-term-panel="preview" onclick="setTerminalPanel('preview')">Preview</button>
-                <button class="terminal-context-tab" data-term-panel="git" onclick="setTerminalPanel('git')">Git</button>
+                <button class="terminal-context-tab active" data-term-panel="git" onclick="setTerminalPanel('git')">Git</button>
                 <button class="terminal-context-tab" data-term-panel="context" onclick="setTerminalPanel('context')">Context</button>
               </div>
               <div class="terminal-side-body" id="terminal-side-body"></div>
             </div>
             <div class="terminal-main">
               <div class="terminal-area" id="terminal-output"></div>
-              <div class="term-input-wrap">
-            <span class="term-cwd" id="term-cwd-display">~</span>
-            <span class="term-sep">❯</span>
-            <input class="term-input" id="termInput" placeholder="Type command…" onkeydown="handleTermInput(event)" autocomplete="off" spellcheck="false"/>
-              </div>
             </div>
           </div>
         </div>
@@ -1121,6 +1283,8 @@
 <!-- Toast -->
 <div id="toast"></div>
 
+<script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+<script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
 let projects = [];
@@ -1146,12 +1310,24 @@ let termHistoryIdx = -1;
 let activeTerm = null;
 let terms = [];
 let termOutputs = {};  // id → html string
+let xtermSessions = {};
+let terminalResizeTimer = null;
+let terminalResizeObserver = null;
+let terminalPresetCommands = [];
 let terminalProjectPath = '';
-let terminalPanel = 'tree';
+let terminalPanel = 'git';
 let terminalTree = [];
 let terminalSelectedFile = '';
 let terminalPreview = null;
+let terminalOpenFiles = [];
+let terminalFileDrafts = {};
+let terminalSelectedTreePath = '';
 let terminalGitInfo = null;
+let terminalExpandedDirs = new Set();
+let terminalDirty = false;
+let terminalSelectedGitFile = '';
+let terminalSelectedGitKind = '';
+let terminalGitDiff = '';
 let healthStatuses = {};
 let healthTimer = null;
 
@@ -1214,13 +1390,18 @@ async function init() {
   });
 
   window.api.onTerminalData(({ id, data }) => {
-    if (!termOutputs[id]) termOutputs[id] = '';
-    termOutputs[id] += escHtml(data);
-    if (activeTerm === id) appendTermOutput(data);
+    xtermSessions[id]?.term?.write(data);
+  });
+
+  window.api.onTerminalExit(({ id }) => {
+    xtermSessions[id]?.term?.write('\r\n[terminal exited]\r\n');
   });
 
   document.addEventListener('click', () => hideContextMenu());
   document.addEventListener('keydown', handleGlobalKeydown);
+  window.addEventListener('resize', fitActiveTerminal);
+  setupTerminalFitObserver();
+  document.fonts?.ready?.then(() => fitActiveTerminal()).catch(() => {});
   setInterval(() => { if (currentOutputId) renderOutputDetails(currentOutputId); }, 1000);
   startHealthChecks();
 }
@@ -2173,24 +2354,167 @@ async function sendToProcess() {
 }
 
 // ─── Terminal ─────────────────────────────────────────────────────────────────
-function newTerminal(cwd) {
+function getActiveTerminalSize() {
+  const session = xtermSessions[activeTerm];
+  if (!session?.term) return { cols: 80, rows: 24 };
+  return { cols: session.term.cols || 80, rows: session.term.rows || 24 };
+}
+
+function createXtermSession(id) {
+  const host = document.getElementById('terminal-output');
+  const el = document.createElement('div');
+  el.className = 'xterm-session';
+  el.dataset.termId = id;
+  host.appendChild(el);
+
+  const term = new Terminal({
+    cursorBlink: true,
+    convertEol: false,
+    fontFamily: 'JetBrains Mono, Consolas, monospace',
+    fontSize: 13,
+    scrollback: 5000,
+    theme: {
+      background: '#020812',
+      foreground: '#d8dee9',
+      cursor: '#38bdf8',
+      selectionBackground: '#334155',
+      black: '#020617',
+      red: '#fb7185',
+      green: '#4ade80',
+      yellow: '#facc15',
+      blue: '#38bdf8',
+      magenta: '#a78bfa',
+      cyan: '#22d3ee',
+      white: '#e5e7eb',
+      brightBlack: '#64748b',
+      brightRed: '#fda4af',
+      brightGreen: '#86efac',
+      brightYellow: '#fde68a',
+      brightBlue: '#7dd3fc',
+      brightMagenta: '#c4b5fd',
+      brightCyan: '#67e8f9',
+      brightWhite: '#f8fafc',
+    },
+  });
+  const fitAddon = new FitAddon.FitAddon();
+  term.loadAddon(fitAddon);
+  term.open(el);
+  const session = { term, fitAddon, el, cwd: '', touched: false };
+  term.onData((data) => {
+    session.touched = true;
+    if (activeTerm === id) window.api.terminalWrite(id, data);
+  });
+  xtermSessions[id] = session;
+  return xtermSessions[id];
+}
+
+function fitTerminal(id, sendResize=true) {
+  const session = xtermSessions[id];
+  if (!session?.fitAddon || !session?.term) return { cols: 80, rows: 24 };
+  const rect = session.el?.getBoundingClientRect();
+  if (!rect || rect.width < 40 || rect.height < 40) {
+    return { cols: session.term.cols || 80, rows: session.term.rows || 24 };
+  }
+  try {
+    session.fitAddon.fit();
+    const size = { cols: session.term.cols || 80, rows: session.term.rows || 24 };
+    if (sendResize) window.api.terminalResize(id, size.cols, size.rows);
+    session.term.refresh(0, Math.max(0, size.rows - 1));
+    return size;
+  } catch (e) {
+    return { cols: 80, rows: 24 };
+  }
+}
+
+function scheduleTerminalFit(id=activeTerm, passCount=5) {
+  if (!id) return;
+  [0, 30, 90, 180, 360].slice(0, passCount).forEach((delay) => {
+    setTimeout(() => {
+      if (activeTerm !== id || !xtermSessions[id]) return;
+      fitTerminal(id, true);
+      xtermSessions[id]?.term?.focus();
+    }, delay);
+  });
+}
+
+function fitActiveTerminal() {
+  clearTimeout(terminalResizeTimer);
+  terminalResizeTimer = setTimeout(() => {
+    scheduleTerminalFit(activeTerm, 3);
+  }, 40);
+}
+
+function setupTerminalFitObserver() {
+  const host = document.getElementById('terminal-output');
+  if (!host || typeof ResizeObserver === 'undefined') return;
+  terminalResizeObserver?.disconnect();
+  terminalResizeObserver = new ResizeObserver(() => fitActiveTerminal());
+  terminalResizeObserver.observe(host);
+}
+
+async function newTerminal(cwd) {
   const id = 'term_' + Date.now();
   terms.push(id);
-  termOutputs[id] = '';
 
   const cwdInput = document.getElementById('term-project-cwd');
   const selectedCwd = cwd || cwdInput.value || '';
   if (cwd) {
     cwdInput.value = cwd;
-    terminalProjectPath = cwd;
-    refreshTerminalContext();
+    if (terminalProjectPath !== cwd) {
+      terminalProjectPath = cwd;
+      refreshTerminalContext();
+      buildTerminalPresetOptions();
+    }
   }
 
-  window.api.terminalCreate(id, selectedCwd || undefined);
   activeTerm = id;
+  const session = createXtermSession(id);
+  session.cwd = selectedCwd || '';
+  switchTerm(id);
+  const size = fitTerminal(id, false);
+  const res = await window.api.terminalCreate(id, selectedCwd || undefined, size);
+  if (!res?.success) {
+    xtermSessions[id]?.term?.write(`Terminal failed: ${res?.error || 'Unknown error'}\r\n`);
+    toast(`Terminal failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+  scheduleTerminalFit(id, 5);
   renderTermTabs();
-  document.getElementById('terminal-output').innerHTML = '';
   toast('New terminal opened', 'info');
+}
+
+function removeTerminalSession(id) {
+  window.api.terminalKill(id);
+  xtermSessions[id]?.term?.dispose();
+  xtermSessions[id]?.el?.remove();
+  delete xtermSessions[id];
+  const idx = terms.indexOf(id);
+  if (idx >= 0) terms.splice(idx, 1);
+}
+
+async function ensureActiveTerminalCwd(cwd) {
+  if (!cwd) return;
+  const session = xtermSessions[activeTerm];
+
+  if (!activeTerm || !session) {
+    await newTerminal(cwd);
+    return;
+  }
+
+  if (session.cwd === cwd) {
+    switchTerm(activeTerm);
+    return;
+  }
+
+  if (!session.touched) {
+    const oldTerm = activeTerm;
+    removeTerminalSession(oldTerm);
+    activeTerm = null;
+    await newTerminal(cwd);
+    return;
+  }
+
+  await newTerminal(cwd);
 }
 
 function renderTermTabs() {
@@ -2205,12 +2529,40 @@ function renderTermTabs() {
 function switchTerm(id) {
   activeTerm = id;
   renderTermTabs();
-  document.getElementById('terminal-output').innerHTML = termOutputs[id] || '';
-  document.getElementById('terminal-output').scrollTop = 9999;
+  Object.entries(xtermSessions).forEach(([termId, session]) => {
+    if (session?.el) session.el.classList.toggle('active', termId === id);
+  });
+  scheduleTerminalFit(id, 4);
+  xtermSessions[id]?.term?.focus();
 }
 
 function getTerminalProject() {
   return projects.find(p => p.path === terminalProjectPath);
+}
+
+function buildTerminalPresetOptions() {
+  const sel = document.getElementById('term-preset-select');
+  if (!sel) return;
+  const project = getTerminalProject();
+  terminalPresetCommands = [];
+
+  if (project?.command) {
+    terminalPresetCommands.push({ name: 'default', command: project.command });
+  }
+  getRunnablePresets(project).forEach((preset) => terminalPresetCommands.push(preset));
+
+  sel.innerHTML = '<option value="">Run preset…</option>' + terminalPresetCommands
+    .map((preset, index) => `<option value="${index}">${escHtml(preset.name)}</option>`)
+    .join('');
+  sel.disabled = !terminalPresetCommands.length || !terminalProjectPath;
+}
+
+async function runSelectedTerminalPreset(value) {
+  const preset = terminalPresetCommands[Number(value)];
+  if (!preset?.command || !terminalProjectPath) return;
+  await ensureActiveTerminalCwd(terminalProjectPath);
+  await window.api.terminalWrite(activeTerm, `${preset.command}\r`);
+  xtermSessions[activeTerm]?.term?.focus();
 }
 
 async function handleTerminalProjectChange() {
@@ -2218,8 +2570,18 @@ async function handleTerminalProjectChange() {
   terminalProjectPath = sel.value || '';
   terminalSelectedFile = '';
   terminalPreview = null;
+  terminalOpenFiles = [];
+  terminalFileDrafts = {};
+  terminalSelectedTreePath = '';
   terminalGitInfo = null;
+  terminalExpandedDirs = new Set();
+  terminalDirty = false;
+  terminalSelectedGitFile = '';
+  terminalSelectedGitKind = '';
+  terminalGitDiff = '';
   await refreshTerminalContext();
+  buildTerminalPresetOptions();
+  await ensureActiveTerminalCwd(terminalProjectPath);
 }
 
 async function refreshTerminalContext() {
@@ -2230,18 +2592,32 @@ async function refreshTerminalContext() {
   if (!terminalProjectPath) {
     terminalTree = [];
     terminalPreview = null;
+    terminalOpenFiles = [];
+    terminalFileDrafts = {};
+    terminalSelectedTreePath = '';
     terminalGitInfo = null;
+    terminalSelectedGitFile = '';
+    terminalSelectedGitKind = '';
+    terminalGitDiff = '';
+    terminalExpandedDirs = new Set();
+    renderTerminalTreePane();
+    renderTerminalEditor();
     renderTerminalPanel();
     return;
   }
 
   const treeRes = await window.api.terminalListProjectFiles(terminalProjectPath);
   terminalTree = treeRes?.success ? treeRes.files : [];
+  if (!terminalExpandedDirs.size) {
+    terminalTree.filter(file => file.type === 'dir' && file.depth === 0).slice(0, 8).forEach(file => terminalExpandedDirs.add(file.path));
+  }
 
   if (terminalPanel === 'git') {
     terminalGitInfo = await window.api.terminalGitInfo(terminalProjectPath);
   }
 
+  renderTerminalTreePane(treeRes?.truncated);
+  renderTerminalEditor();
   renderTerminalPanel(treeRes?.truncated);
 }
 
@@ -2264,52 +2640,323 @@ function renderTerminalPanel(truncated=false) {
   if (!body) return;
 
   if (!terminalProjectPath) {
+    renderTerminalTreePane();
+    renderTerminalEditor();
     body.innerHTML = '<div class="terminal-panel-empty">Choose a project folder from the terminal toolbar to load tree, preview, git, and context helpers.</div>';
     return;
   }
 
-  if (terminalPanel === 'tree') {
-    renderTerminalTree(body, truncated);
-  } else if (terminalPanel === 'preview') {
-    renderTerminalPreview(body);
-  } else if (terminalPanel === 'git') {
+  if (terminalPanel === 'git') {
     renderTerminalGit(body);
   } else {
     renderTerminalContext(body);
   }
 }
 
-function renderTerminalTree(body, truncated=false) {
-  if (!terminalTree.length) {
-    body.innerHTML = '<div class="terminal-panel-empty">No project files found.</div>';
+function isTreePathVisible(file) {
+  const parts = file.path.replace(/\\/g, '/').split('/');
+  if (parts.length <= 1) return true;
+  let parent = '';
+  for (let i = 0; i < parts.length - 1; i++) {
+    parent = parent ? `${parent}/${parts[i]}` : parts[i];
+    if (!terminalExpandedDirs.has(parent)) return false;
+  }
+  return true;
+}
+
+function toggleTerminalDir(relativePath) {
+  terminalSelectedTreePath = relativePath;
+  if (terminalExpandedDirs.has(relativePath)) terminalExpandedDirs.delete(relativePath);
+  else terminalExpandedDirs.add(relativePath);
+  renderTerminalTreePane();
+  renderTerminalPanel();
+}
+
+function getTreeEntry(relativePath) {
+  return terminalTree.find(file => file.path === relativePath);
+}
+
+function getParentPath(relativePath) {
+  const parts = String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean);
+  parts.pop();
+  return parts.join('/');
+}
+
+function getEntryName(relativePath) {
+  return String(relativePath || '').replace(/\\/g, '/').split('/').filter(Boolean).pop() || '';
+}
+
+function getTargetParentPath() {
+  const selected = terminalSelectedTreePath || terminalSelectedFile || '';
+  const entry = getTreeEntry(selected);
+  if (entry?.type === 'dir') return selected;
+  return getParentPath(selected);
+}
+
+async function createTerminalEntry(type) {
+  if (!terminalProjectPath) return;
+  const name = prompt(type === 'dir' ? 'Folder name' : 'File name');
+  if (!name) return;
+  const parentPath = getTargetParentPath();
+  const res = await window.api.terminalCreateProjectEntry(terminalProjectPath, parentPath, name, type);
+  if (!res?.success) {
+    toast(`Create failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+  if (parentPath) terminalExpandedDirs.add(parentPath);
+  await refreshTerminalContext();
+  if (type !== 'dir') previewTerminalFile(res.path);
+  toast(type === 'dir' ? 'Folder created' : 'File created', 'success');
+}
+
+async function renameTerminalEntry() {
+  const target = terminalSelectedTreePath || terminalSelectedFile;
+  if (!terminalProjectPath || !target) {
+    toast('Select a file or folder first.', 'error');
+    return;
+  }
+  const name = prompt('Rename to', getEntryName(target));
+  if (!name || name === getEntryName(target)) return;
+  captureActiveEditorDraft();
+  const res = await window.api.terminalRenameProjectEntry(terminalProjectPath, target, name);
+  if (!res?.success) {
+    toast(`Rename failed: ${res?.error || 'Unknown error'}`, 'error');
     return;
   }
 
-  const rows = terminalTree.map(file => {
+  const remapPath = (file) => {
+    if (!file) return file;
+    if (file === target) return res.path;
+    return file.startsWith(`${target}/`) ? `${res.path}${file.slice(target.length)}` : file;
+  };
+  const nextDrafts = {};
+  Object.entries(terminalFileDrafts).forEach(([file, draft]) => {
+    nextDrafts[remapPath(file)] = draft;
+  });
+  terminalFileDrafts = nextDrafts;
+  terminalOpenFiles = terminalOpenFiles.map(remapPath);
+  terminalSelectedFile = remapPath(terminalSelectedFile);
+  terminalSelectedTreePath = remapPath(target);
+  await refreshTerminalContext();
+  if (terminalSelectedFile) previewTerminalFile(terminalSelectedFile);
+  toast('Renamed', 'success');
+}
+
+async function deleteTerminalEntry() {
+  const target = terminalSelectedTreePath || terminalSelectedFile;
+  if (!terminalProjectPath || !target) {
+    toast('Select a file or folder first.', 'error');
+    return;
+  }
+  if (!confirm(`Delete "${target}"?`)) return;
+  const res = await window.api.terminalDeleteProjectEntry(terminalProjectPath, target);
+  if (!res?.success) {
+    toast(`Delete failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+
+  terminalOpenFiles = terminalOpenFiles.filter(file => file !== target && !file.startsWith(`${target}/`));
+  Object.keys(terminalFileDrafts).forEach((file) => {
+    if (file === target || file.startsWith(`${target}/`)) delete terminalFileDrafts[file];
+  });
+  if (terminalSelectedFile === target || terminalSelectedFile.startsWith(`${target}/`)) {
+    terminalSelectedFile = terminalOpenFiles[0] || '';
+    terminalPreview = null;
+  }
+  terminalSelectedTreePath = terminalSelectedFile;
+  await refreshTerminalContext();
+  if (terminalSelectedFile) previewTerminalFile(terminalSelectedFile);
+  toast('Deleted', 'success');
+}
+
+function renderTerminalTreeRows() {
+  if (!terminalTree.length) {
+    return '<div class="terminal-panel-empty">No project files found.</div>';
+  }
+
+  return terminalTree.map(file => {
+    if (!isTreePathVisible(file)) return '';
     const isFile = file.type === 'file';
-    const active = terminalSelectedFile === file.path ? ' active' : '';
-    const click = isFile ? `onclick="previewTerminalFile('${escJs(file.path)}')"` : '';
+    const active = (terminalSelectedFile === file.path || terminalSelectedTreePath === file.path) ? ' active' : '';
+    const expanded = terminalExpandedDirs.has(file.path);
+    const click = isFile ? `onclick="previewTerminalFile('${escJs(file.path)}')"` : `onclick="toggleTerminalDir('${escJs(file.path)}')"`;
     const indent = Math.max(0, Number(file.depth) || 0) * 14;
     return `<div class="tree-row ${file.type}${active}" ${click}>
       <span class="tree-indent" style="width:${indent}px"></span>
-      <span>${file.type === 'dir' ? '▸' : '·'}</span>
-      <span>${escHtml(file.name)}</span>
+      <span class="tree-expander">${file.type === 'dir' ? (expanded ? '▾' : '▸') : '·'}</span>
+      <span class="tree-name">${escHtml(file.name)}</span>
     </div>`;
   }).join('');
+}
 
-  body.innerHTML = rows + (truncated ? '<div class="terminal-panel-empty">Tree truncated to keep the UI responsive.</div>' : '');
+function renderTerminalTreePane(truncated=false) {
+  const body = document.getElementById('terminal-tree-body');
+  if (!body) return;
+  if (!terminalProjectPath) {
+    body.innerHTML = '<div class="terminal-panel-empty">Choose a project folder to load its files.</div>';
+    return;
+  }
+  body.innerHTML = renderTerminalTreeRows() + (truncated ? '<div class="terminal-panel-empty">Tree truncated to keep the UI responsive.</div>' : '');
+}
+
+function renderTerminalTree(body, truncated=false) {
+  body.innerHTML = renderTerminalTreeRows() + (truncated ? '<div class="terminal-panel-empty">Tree truncated to keep the UI responsive.</div>' : '');
+}
+
+function getFileDraft(relativePath) {
+  if (!terminalFileDrafts[relativePath]) terminalFileDrafts[relativePath] = { dirty: false, text: '', preview: null };
+  return terminalFileDrafts[relativePath];
+}
+
+function captureActiveEditorDraft() {
+  if (!terminalSelectedFile) return;
+  const textarea = document.getElementById('terminal-editor-text');
+  if (!textarea) return;
+  const draft = getFileDraft(terminalSelectedFile);
+  draft.text = textarea.value;
+}
+
+function renderTerminalFileTabs() {
+  const tabs = document.getElementById('terminal-file-tabs');
+  if (!tabs) return;
+  if (!terminalOpenFiles.length) {
+    tabs.innerHTML = '';
+    return;
+  }
+
+  tabs.innerHTML = terminalOpenFiles.map(file => {
+    const draft = terminalFileDrafts[file];
+    const active = terminalSelectedFile === file ? ' active' : '';
+    const dirty = draft?.dirty ? ' *' : '';
+    return `<button class="editor-tab${active}" onclick="previewTerminalFile('${escJs(file)}')">
+      <span class="editor-tab-name">${escHtml(getEntryName(file) + dirty)}</span>
+      <span class="editor-tab-close" onclick="event.stopPropagation();closeTerminalFile('${escJs(file)}')">×</span>
+    </button>`;
+  }).join('');
+}
+
+function closeTerminalFile(relativePath) {
+  captureActiveEditorDraft();
+  const draft = terminalFileDrafts[relativePath];
+  if (draft?.dirty && !confirm(`Close "${relativePath}" with unsaved changes?`)) return;
+
+  const idx = terminalOpenFiles.indexOf(relativePath);
+  terminalOpenFiles = terminalOpenFiles.filter(file => file !== relativePath);
+  delete terminalFileDrafts[relativePath];
+
+  if (terminalSelectedFile === relativePath) {
+    const nextFile = terminalOpenFiles[Math.max(0, idx - 1)] || terminalOpenFiles[0] || '';
+    terminalSelectedFile = '';
+    terminalPreview = null;
+    if (nextFile) previewTerminalFile(nextFile);
+    else renderTerminalEditor();
+  } else {
+    renderTerminalFileTabs();
+  }
+}
+
+function renderTerminalEditor() {
+  const title = document.getElementById('terminal-editor-title');
+  const actions = document.getElementById('terminal-editor-actions');
+  const body = document.getElementById('terminal-editor-body');
+  renderTerminalFileTabs();
+  if (!title || !actions || !body) return;
+
+  if (!terminalSelectedFile) {
+    title.textContent = 'No file selected';
+    actions.innerHTML = '';
+    body.innerHTML = '<div class="terminal-panel-empty">Choose a file from Explorer to edit or preview it.</div>';
+    return;
+  }
+
+  const draft = getFileDraft(terminalSelectedFile);
+  title.textContent = draft.dirty ? `${terminalSelectedFile} *` : terminalSelectedFile;
+  if (terminalPreview?.loading) {
+    actions.innerHTML = '';
+    body.innerHTML = `<div class="terminal-panel-empty">Loading ${escHtml(terminalSelectedFile)}...</div>`;
+    return;
+  }
+  if (!terminalPreview?.success) {
+    actions.innerHTML = '';
+    body.innerHTML = `<div class="terminal-panel-empty">${escHtml(terminalPreview?.error || 'Preview unavailable.')}</div>`;
+    return;
+  }
+
+  if (terminalPreview.kind === 'image') {
+    actions.innerHTML = `<button class="workspace-btn" onclick="renameTerminalEntry()">Rename</button>
+      <button class="workspace-btn danger" onclick="deleteTerminalEntry()">Delete</button>`;
+    body.innerHTML = `<div class="image-preview-wrap"><img src="${escAttr(terminalPreview.dataUrl)}" alt="${escAttr(terminalPreview.path)}"></div>`;
+    return;
+  }
+
+  actions.innerHTML = `<button class="workspace-btn primary" onclick="saveTerminalFile()">Save</button>
+    <button class="workspace-btn" onclick="renameTerminalEntry()">Rename</button>
+    <button class="workspace-btn danger" onclick="deleteTerminalEntry()">Delete</button>`;
+  const text = draft.text !== undefined && draft.text !== null ? draft.text : (terminalPreview.text || '');
+  body.innerHTML = `<textarea class="editor-textarea" id="terminal-editor-text" oninput="markTerminalDirty()" spellcheck="false">${escHtml(text)}</textarea>`;
 }
 
 async function previewTerminalFile(relativePath) {
+  captureActiveEditorDraft();
   terminalSelectedFile = relativePath;
-  terminalPanel = 'preview';
-  document.querySelectorAll('.terminal-context-tab').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.termPanel === 'preview');
-  });
+  terminalSelectedTreePath = relativePath;
+  if (!terminalOpenFiles.includes(relativePath)) terminalOpenFiles.push(relativePath);
+  const draft = getFileDraft(relativePath);
+  if (draft.preview) {
+    terminalPreview = draft.preview;
+    terminalDirty = Boolean(draft.dirty);
+    renderTerminalTreePane();
+    renderTerminalEditor();
+    renderTerminalPanel();
+    return;
+  }
+  terminalDirty = Boolean(draft.dirty);
   terminalPreview = { loading: true, path: relativePath };
+  renderTerminalEditor();
   renderTerminalPanel();
   terminalPreview = await window.api.terminalReadProjectFile(terminalProjectPath, relativePath);
+  draft.preview = terminalPreview;
+  if (terminalPreview?.success && terminalPreview.kind === 'text' && draft.text === '') {
+    draft.text = terminalPreview.text || '';
+  }
+  renderTerminalEditor();
+  renderTerminalTreePane();
   renderTerminalPanel();
+}
+
+function markTerminalDirty() {
+  if (!terminalSelectedFile) return;
+  const draft = getFileDraft(terminalSelectedFile);
+  draft.text = document.getElementById('terminal-editor-text')?.value || '';
+  draft.dirty = true;
+  terminalDirty = true;
+  renderTerminalEditorTitle();
+  renderTerminalFileTabs();
+}
+
+function renderTerminalEditorTitle() {
+  const title = document.getElementById('terminal-editor-title');
+  const dirty = terminalSelectedFile ? Boolean(terminalFileDrafts[terminalSelectedFile]?.dirty) : false;
+  if (title) title.textContent = terminalSelectedFile ? (dirty ? `${terminalSelectedFile} *` : terminalSelectedFile) : 'No file selected';
+}
+
+async function saveTerminalFile() {
+  captureActiveEditorDraft();
+  const draft = getFileDraft(terminalSelectedFile);
+  const text = draft.text;
+  if (!terminalProjectPath || !terminalSelectedFile || text === undefined) return;
+  const res = await window.api.terminalWriteProjectFile(terminalProjectPath, terminalSelectedFile, text);
+  if (!res?.success) {
+    toast(`Save failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+  terminalDirty = false;
+  draft.dirty = false;
+  terminalPreview = await window.api.terminalReadProjectFile(terminalProjectPath, terminalSelectedFile);
+  draft.preview = terminalPreview;
+  renderTerminalEditor();
+  renderTerminalPanel();
+  toast('File saved', 'success');
 }
 
 function renderTerminalPreview(body) {
@@ -2325,8 +2972,65 @@ function renderTerminalPreview(body) {
     body.innerHTML = `<div class="preview-empty">${escHtml(terminalPreview?.error || 'Preview unavailable.')}</div>`;
     return;
   }
+  if (terminalPreview.kind === 'image') {
+    body.innerHTML = `<div class="preview-empty">${escHtml(terminalPreview.path)} · ${terminalPreview.size} bytes</div>
+      <div class="image-preview-wrap"><img src="${escAttr(terminalPreview.dataUrl)}" alt="${escAttr(terminalPreview.path)}"></div>`;
+    return;
+  }
   body.innerHTML = `<div class="preview-empty">${escHtml(terminalPreview.path)} · ${terminalPreview.size} bytes</div>
-    <pre class="preview-code">${escHtml(terminalPreview.text)}</pre>`;
+    <pre class="preview-code">${escHtml(terminalPreview.text || '')}</pre>`;
+}
+
+function renderGitChangeSection(title, changes, kind) {
+  const list = Array.isArray(changes) ? changes : [];
+  if (!list.length) return '';
+
+  return `<div class="git-section-title">${escHtml(title)} <span>${list.length}</span></div>` + list.map(change => {
+    const selected = terminalSelectedGitFile === change.path && terminalSelectedGitKind === kind ? ' active' : '';
+    return `<div class="git-change${selected}" onclick="selectGitFile('${escJs(change.path)}', '${escJs(kind)}')">
+      <span class="git-status-code">${escHtml((change.index || ' ') + (change.working || ' '))}</span>
+      <span class="git-path">${escHtml(change.path)}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderSelectedGitActions() {
+  if (!terminalSelectedGitFile) return '';
+  const file = escJs(terminalSelectedGitFile);
+
+  if (terminalSelectedGitKind === 'staged') {
+    return `<div class="git-actions">
+      <button class="workspace-btn" onclick="runTerminalGitAction('diff-staged', '${file}')">Diff staged</button>
+      <button class="workspace-btn" onclick="runTerminalGitAction('unstage', '${file}')">Unstage</button>
+    </div>`;
+  }
+
+  if (terminalSelectedGitKind === 'untracked') {
+    return `<div class="git-actions">
+      <button class="workspace-btn primary" onclick="runTerminalGitAction('stage', '${file}')">Stage</button>
+      <button class="workspace-btn danger" onclick="deleteTerminalUntrackedFile('${file}')">Delete</button>
+    </div>`;
+  }
+
+  return `<div class="git-actions">
+    <button class="workspace-btn" onclick="runTerminalGitAction('diff', '${file}')">Diff</button>
+    <button class="workspace-btn primary" onclick="runTerminalGitAction('stage', '${file}')">Stage</button>
+    <button class="workspace-btn danger" onclick="discardTerminalGitFile('${file}')">Discard</button>
+  </div>`;
+}
+
+function renderGitCommitRows() {
+  const commits = Array.isArray(terminalGitInfo?.commits) ? terminalGitInfo.commits : [];
+  if (!commits.length) {
+    return `<pre class="git-output">${escHtml(terminalGitInfo?.log || 'No commits found')}</pre>`;
+  }
+
+  return `<div class="git-commit-list">${commits.map(commit => `
+    <div class="git-commit-row">
+      <span class="git-commit-hash">${escHtml(commit.hash.slice(0, 7))}</span>
+      <span class="git-commit-subject" title="${escAttr(commit.subject)}">${escHtml(commit.subject)}</span>
+      <button class="workspace-btn danger" onclick="revertTerminalGitCommit('${escJs(commit.hash)}')">Revert</button>
+    </div>`).join('')}</div>`;
 }
 
 function renderTerminalGit(body) {
@@ -2338,74 +3042,154 @@ function renderTerminalGit(body) {
     body.innerHTML = `<div class="terminal-panel-empty">${escHtml(terminalGitInfo.error || 'Git info unavailable.')}</div>`;
     return;
   }
-  body.innerHTML = `<div class="preview-empty">Status</div>
-    <pre class="git-output">${escHtml(terminalGitInfo.status || 'Clean working tree')}</pre>
+
+  const staged = terminalGitInfo.staged || [];
+  const unstaged = terminalGitInfo.unstaged || [];
+  const untracked = terminalGitInfo.untracked || [];
+  const clean = !staged.length && !unstaged.length && !untracked.length;
+  const sections = clean
+    ? '<div class="terminal-panel-empty">Working tree is clean.</div>'
+    : [
+        renderGitChangeSection('Staged', staged, 'staged'),
+        renderGitChangeSection('Unstaged', unstaged, 'unstaged'),
+        renderGitChangeSection('Untracked', untracked, 'untracked'),
+      ].join('');
+
+  body.innerHTML = `<div class="preview-empty">${escHtml(terminalGitInfo.branch || 'Git status')}</div>
+    <div class="git-actions">
+      <button class="workspace-btn primary" onclick="runTerminalGitAction('stage-all', '')">Stage all</button>
+      <button class="workspace-btn" onclick="runTerminalGitAction('unstage-all', '')">Unstage all</button>
+      <button class="workspace-btn" onclick="refreshTerminalGit()">Refresh</button>
+    </div>
+    ${sections}
+    ${renderSelectedGitActions()}
+    ${terminalGitDiff ? `<pre class="git-output">${escHtml(terminalGitDiff)}</pre>` : ''}
+    <div class="preview-empty">Commit staged changes</div>
+    <div class="commit-row">
+      <input class="commit-input" id="terminal-commit-message" placeholder="Commit message" />
+      <button class="workspace-btn primary" onclick="commitTerminalGit()">Commit</button>
+    </div>
     <div class="preview-empty">Recent commits</div>
-    <pre class="git-output">${escHtml(terminalGitInfo.log || 'No commits found')}</pre>`;
+    ${renderGitCommitRows()}`;
 }
 
-function renderTerminalContext(body) {
-  const wanted = [
-    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.cursorrules',
-    'README.md', 'docs/HANDOVER.md', 'docs/ROADMAP.md',
-    'docs/RUNBOOK.md', 'docs/PROMPTS.md', 'prompts/README.md',
-    'runbooks/README.md', 'package.json', '.env',
-  ];
-  const matches = wanted
-    .map(name => terminalTree.find(file => file.type === 'file' && file.path.replace(/\\/g, '/') === name))
-    .filter(Boolean);
+function syncSelectedGitFile() {
+  if (!terminalSelectedGitFile || !terminalGitInfo?.success) return;
+  const selectedStillExists = [
+    ...(terminalGitInfo.staged || []).map(change => ['staged', change.path]),
+    ...(terminalGitInfo.unstaged || []).map(change => ['unstaged', change.path]),
+    ...(terminalGitInfo.untracked || []).map(change => ['untracked', change.path]),
+  ].some(([kind, file]) => kind === terminalSelectedGitKind && file === terminalSelectedGitFile);
 
-  if (!matches.length) {
-    body.innerHTML = '<div class="terminal-panel-empty">No common context files found yet.</div>';
+  if (!selectedStillExists) {
+    terminalSelectedGitFile = '';
+    terminalSelectedGitKind = '';
+    terminalGitDiff = '';
+  }
+}
+
+async function refreshTerminalGit() {
+  terminalGitInfo = await window.api.terminalGitInfo(terminalProjectPath);
+  syncSelectedGitFile();
+  if (terminalPanel === 'git') renderTerminalPanel();
+}
+
+async function selectGitFile(file, kind='unstaged') {
+  terminalSelectedGitFile = file;
+  terminalSelectedGitKind = kind;
+
+  if (kind === 'untracked') {
+    terminalGitDiff = 'Untracked files do not have a diff until they are staged.';
+    renderTerminalPanel();
     return;
   }
 
-  body.innerHTML = `<div class="context-list">${
+  await runTerminalGitAction(kind === 'staged' ? 'diff-staged' : 'diff', file, false);
+}
+
+async function runTerminalGitAction(action, file, showToast=true) {
+  if (!terminalProjectPath) return;
+  const res = await window.api.terminalGitAction(terminalProjectPath, action, file || '');
+  if (action === 'diff' || action === 'diff-staged') {
+    const empty = action === 'diff-staged' ? 'No staged diff for this file.' : 'No unstaged diff for this file.';
+    terminalGitDiff = res?.success ? (res.output || empty) : (res?.error || 'Diff unavailable.');
+    renderTerminalPanel();
+    return;
+  }
+  if (!res?.success) {
+    toast(`Git ${action} failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+  terminalGitDiff = '';
+  await refreshTerminalGit();
+  if (showToast) toast(`Git ${action} complete`, 'success');
+}
+
+async function discardTerminalGitFile(file) {
+  if (!confirm(`Discard changes in "${file}"?`)) return;
+  await runTerminalGitAction('discard', file);
+}
+
+async function deleteTerminalUntrackedFile(file) {
+  if (!confirm(`Delete untracked "${file}"?`)) return;
+  await runTerminalGitAction('delete-untracked', file);
+}
+
+async function revertTerminalGitCommit(hash) {
+  if (!confirm(`Revert commit ${hash.slice(0, 7)}?`)) return;
+  await runTerminalGitAction('revert-commit', hash);
+}
+
+async function commitTerminalGit() {
+  const message = document.getElementById('terminal-commit-message')?.value || '';
+  const res = await window.api.terminalGitAction(terminalProjectPath, 'commit', '', message);
+  if (!res?.success) {
+    toast(`Commit failed: ${res?.error || 'Unknown error'}`, 'error');
+    return;
+  }
+  terminalGitDiff = '';
+  terminalSelectedGitFile = '';
+  terminalSelectedGitKind = '';
+  await refreshTerminalGit();
+  toast('Commit created', 'success');
+}
+
+function renderTerminalContext(body) {
+  const matches = terminalTree
+    .filter(file => file.type === 'file')
+    .filter(file => {
+      const p = file.path.replace(/\\/g, '/').toLowerCase();
+      const name = file.name.toLowerCase();
+      return name === 'agents.md'
+        || name === 'readme.md'
+        || name === 'package.json'
+        || name === '.env'
+        || name.endsWith('runbook.md')
+        || p.startsWith('docs/')
+        || p.startsWith('prompts/')
+        || p.startsWith('runbooks/')
+        || p.includes('/docs/')
+        || p.includes('/prompts/')
+        || p.includes('/runbooks/');
+    })
+    .slice(0, 80);
+
+  if (!matches.length) {
+    body.innerHTML = '<div class="terminal-panel-empty">No docs, runbooks, prompts, README, AGENTS.md, package.json, or .env files found yet.</div>';
+    return;
+  }
+
+  body.innerHTML = `<div class="preview-empty">${matches.length} context candidates</div><div class="context-list">${
     matches.map(file => `<button class="context-chip" onclick="previewTerminalFile('${escJs(file.path)}')">${escHtml(file.path)}</button>`).join('')
   }</div>`;
 }
 
 function closeTerminal(id) {
-  window.api.terminalKill(id);
-  const idx = terms.indexOf(id);
-  terms.splice(idx, 1);
+  removeTerminalSession(id);
   if (activeTerm === id) activeTerm = terms[terms.length-1] || null;
   if (activeTerm) switchTerm(activeTerm);
   renderTermTabs();
-}
-
-function appendTermOutput(data) {
-  const el = document.getElementById('terminal-output');
-  const lines = data.split('\n');
-  lines.forEach((line, i) => {
-    if (i === lines.length-1 && line === '') return;
-    const div = document.createElement('div');
-    div.className = 'term-line';
-    div.textContent = line;
-    el.appendChild(div);
-  });
-  el.scrollTop = el.scrollHeight;
-}
-
-async function handleTermInput(e) {
-  if (e.key === 'Enter') {
-    const inp = document.getElementById('termInput');
-    const cmd = inp.value;
-    termHistory.unshift(cmd);
-    termHistoryIdx = -1;
-    inp.value = '';
-    if (!activeTerm) return;
-    await window.api.terminalWrite(activeTerm, cmd + '\n');
-    appendTermOutput(`$ ${cmd}\n`);
-  } else if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    termHistoryIdx = Math.min(termHistoryIdx+1, termHistory.length-1);
-    document.getElementById('termInput').value = termHistory[termHistoryIdx] || '';
-  } else if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    termHistoryIdx = Math.max(termHistoryIdx-1, -1);
-    document.getElementById('termInput').value = termHistoryIdx >= 0 ? termHistory[termHistoryIdx] : '';
-  }
+  if (!activeTerm && terms.length === 0) newTerminal();
 }
 
 function buildTermProjectOptions() {
@@ -2416,7 +3200,10 @@ function buildTermProjectOptions() {
   if (previous && projects.some(p => p.path === previous)) {
     sel.value = previous;
     terminalProjectPath = previous;
+  } else if (previous && terminalProjectPath === previous) {
+    terminalProjectPath = '';
   }
+  buildTerminalPresetOptions();
   refreshTerminalContext();
 }
 
@@ -2733,6 +3520,7 @@ function switchView(name, el) {
   document.getElementById(`view-${name}`).classList.add('active');
   if (el) el.classList.add('active');
   if (name === 'output') updateOutputTabs();
+  if (name === 'terminal') fitActiveTerminal();
 }
 
 function setLayout(l) {

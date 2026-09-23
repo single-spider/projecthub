@@ -1,0 +1,7 @@
+{
+  "name": "projecthub-radial-launcher-prototype",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Isolated Windows visual prototype; no ProjectHub actions are connected.",
+  "main": "main.js"
+}

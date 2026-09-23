@@ -1,0 +1,5 @@
+{
+  "name": "launcher-renderer-smoke",
+  "private": true,
+  "main": "../smoke.js"
+}

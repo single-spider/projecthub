@@ -6,6 +6,7 @@ const os = require('os');
 const net = require('net');
 const http = require('http');
 const https = require('https');
+const pty = require('node-pty');
 
 let mainWindow;
 const runningProcesses = new Map();
@@ -19,8 +20,9 @@ const LOGS_FILE = path.join(app.getPath('userData'), 'process-logs.json');
 const SETTINGS_FILE = path.join(app.getPath('userData'), 'settings.json');
 const MAX_LOG_ENTRIES_PER_PROJECT = 1000;
 const RESOURCE_SAMPLE_MS = 2000;
-const MAX_PROJECT_TREE_ENTRIES = 500;
+const MAX_PROJECT_TREE_ENTRIES = 1200;
 const MAX_TEXT_PREVIEW_BYTES = 120 * 1024;
+const MAX_IMAGE_PREVIEW_BYTES = 5 * 1024 * 1024;
 const HEALTH_TIMEOUT_MS = 3500;
 const DOCKER_COMPOSE_FILES = ['docker-compose.yml', 'docker-compose.yaml', 'compose.yml', 'compose.yaml'];
 const AGENT_CLIS = ['codex', 'claude', 'aider', 'gemini', 'goose'];
@@ -28,6 +30,7 @@ const TREE_IGNORE_DIRS = new Set([
   '.git', 'node_modules', '.venv', 'venv', 'env', 'dist', 'build', 'out',
   '.next', '.expo', '.turbo', '.cache', '__pycache__',
 ]);
+let windowsPathCache = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -227,14 +230,22 @@ function listProjectFiles(rootPath) {
 
         const fullPath = path.join(dirPath, entry.name);
         const relativePath = path.relative(rootPath, fullPath);
+        let stat = null;
+        try {
+          stat = fs.statSync(fullPath);
+        } catch (e) {}
+
         files.push({
           name: entry.name,
           path: relativePath,
           type: entry.isDirectory() ? 'dir' : 'file',
           depth,
+          size: stat?.size || 0,
+          modified: stat?.mtimeMs || 0,
+          ext: entry.isDirectory() ? '' : path.extname(entry.name).toLowerCase(),
         });
 
-        if (entry.isDirectory() && depth < 3) walk(fullPath, depth + 1);
+        if (entry.isDirectory()) walk(fullPath, depth + 1);
       });
   }
 
@@ -253,14 +264,168 @@ function readProjectTextFile(rootPath, relativePath) {
   try {
     const stat = fs.statSync(fullPath);
     if (!stat.isFile()) return { success: false, error: 'Select a file to preview.' };
+    const ext = path.extname(fullPath).toLowerCase();
+    const imageTypes = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.bmp': 'image/bmp',
+    };
+
+    if (imageTypes[ext]) {
+      if (stat.size > MAX_IMAGE_PREVIEW_BYTES) return { success: false, error: 'Image is too large to preview.' };
+      const buffer = fs.readFileSync(fullPath);
+      return {
+        success: true,
+        path: relativePath,
+        size: stat.size,
+        kind: 'image',
+        mime: imageTypes[ext],
+        dataUrl: `data:${imageTypes[ext]};base64,${buffer.toString('base64')}`,
+      };
+    }
+
     if (stat.size > MAX_TEXT_PREVIEW_BYTES) return { success: false, error: 'File is too large to preview.' };
 
     const buffer = fs.readFileSync(fullPath);
     if (buffer.includes(0)) return { success: false, error: 'Binary files are not previewed.' };
-    return { success: true, path: relativePath, size: stat.size, text: buffer.toString('utf8') };
+    return { success: true, path: relativePath, size: stat.size, kind: 'text', text: buffer.toString('utf8') };
   } catch (e) {
     return { success: false, error: e.message };
   }
+}
+
+function writeProjectTextFile(rootPath, relativePath, text) {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return { success: false, error: validation.error };
+  if (!relativePath || path.isAbsolute(relativePath)) return { success: false, error: 'Select a project file first.' };
+
+  const fullPath = path.resolve(rootPath, relativePath);
+  if (!isInsidePath(rootPath, fullPath)) return { success: false, error: 'File is outside the project folder.' };
+
+  try {
+    const stat = fs.statSync(fullPath);
+    if (!stat.isFile()) return { success: false, error: 'Select a file to edit.' };
+    if (Buffer.byteLength(String(text || ''), 'utf8') > MAX_TEXT_PREVIEW_BYTES) {
+      return { success: false, error: 'File is too large to save from ProjectHub.' };
+    }
+    fs.writeFileSync(fullPath, String(text || ''), 'utf8');
+    return { success: true, path: relativePath, size: Buffer.byteLength(String(text || ''), 'utf8') };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function validateProjectEntryName(name) {
+  const value = String(name || '').trim();
+  if (!value) return { valid: false, error: 'Name is required.' };
+  if (/[<>:"/\\|?*\x00-\x1F]/.test(value) || value === '.' || value === '..') {
+    return { valid: false, error: 'Name contains invalid path characters.' };
+  }
+  return { valid: true, name: value };
+}
+
+function resolveProjectEntry(rootPath, relativePath='') {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return { success: false, error: validation.error };
+  if (path.isAbsolute(String(relativePath || ''))) return { success: false, error: 'Project entry must be relative.' };
+
+  const fullPath = path.resolve(rootPath, relativePath || '.');
+  if (!isInsidePath(rootPath, fullPath)) return { success: false, error: 'Path is outside the project folder.' };
+  return { success: true, fullPath };
+}
+
+function createProjectEntry(rootPath, parentPath, name, type) {
+  const parent = resolveProjectEntry(rootPath, parentPath || '');
+  if (!parent.success) return parent;
+  const nameCheck = validateProjectEntryName(name);
+  if (!nameCheck.valid) return { success: false, error: nameCheck.error };
+
+  const fullPath = path.resolve(parent.fullPath, nameCheck.name);
+  if (!isInsidePath(rootPath, fullPath)) return { success: false, error: 'Path is outside the project folder.' };
+  if (pathExists(fullPath)) return { success: false, error: 'A file or folder with that name already exists.' };
+
+  try {
+    if (type === 'dir') fs.mkdirSync(fullPath);
+    else fs.writeFileSync(fullPath, '', { flag: 'wx' });
+    return { success: true, path: path.relative(rootPath, fullPath) };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function renameProjectEntry(rootPath, relativePath, name) {
+  const entry = resolveProjectEntry(rootPath, relativePath);
+  if (!entry.success) return entry;
+  const nameCheck = validateProjectEntryName(name);
+  if (!nameCheck.valid) return { success: false, error: nameCheck.error };
+
+  const fullPath = entry.fullPath;
+  const targetPath = path.resolve(path.dirname(fullPath), nameCheck.name);
+  if (!isInsidePath(rootPath, targetPath)) return { success: false, error: 'Path is outside the project folder.' };
+  if (pathExists(targetPath)) return { success: false, error: 'A file or folder with that name already exists.' };
+
+  try {
+    fs.renameSync(fullPath, targetPath);
+    return { success: true, path: path.relative(rootPath, targetPath) };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function deleteProjectEntry(rootPath, relativePath) {
+  const entry = resolveProjectEntry(rootPath, relativePath);
+  if (!entry.success) return entry;
+  if (!relativePath) return { success: false, error: 'Cannot delete the project root.' };
+
+  try {
+    const stat = fs.statSync(entry.fullPath);
+    if (stat.isDirectory()) fs.rmSync(entry.fullPath, { recursive: true, force: false });
+    else fs.unlinkSync(entry.fullPath);
+    return { success: true };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+function parseGitStatus(statusOut) {
+  return String(statusOut || '').split(/\r?\n/).filter(Boolean).map((line) => {
+    if (line.startsWith('##')) return null;
+    return {
+      index: line.slice(0, 1).trim(),
+      working: line.slice(1, 2).trim(),
+      path: line.slice(3).trim(),
+      raw: line,
+    };
+  }).filter(Boolean);
+}
+
+function splitGitChanges(changes) {
+  const staged = [];
+  const unstaged = [];
+  const untracked = [];
+
+  changes.forEach((change) => {
+    if (change.index === '?' && change.working === '?') {
+      untracked.push(change);
+      return;
+    }
+    if (change.index) staged.push(change);
+    if (change.working) unstaged.push(change);
+  });
+
+  return { staged, unstaged, untracked };
+}
+
+function parseGitLog(logOut) {
+  return String(logOut || '').split(/\r?\n/).filter(Boolean).map((line) => {
+    const match = line.match(/^([a-f0-9]{7,40})\s+(.+)$/i);
+    if (!match) return null;
+    return { hash: match[1], subject: match[2] };
+  }).filter(Boolean);
 }
 
 function getGitInfo(rootPath) {
@@ -271,10 +436,17 @@ function getGitInfo(rootPath) {
     execFile('git', ['-C', rootPath, 'status', '--short', '--branch'], { timeout: 5000 }, (statusErr, statusOut) => {
       if (statusErr) return resolve({ success: false, error: 'No git repository detected.' });
 
-      execFile('git', ['-C', rootPath, 'log', '--oneline', '-5'], { timeout: 5000 }, (logErr, logOut) => {
+      execFile('git', ['-C', rootPath, 'log', '--oneline', '-8'], { timeout: 5000 }, (logErr, logOut) => {
+        const lines = String(statusOut || '').split(/\r?\n/);
+        const branch = lines.find(line => line.startsWith('##')) || '';
+        const changes = parseGitStatus(statusOut);
         resolve({
           success: true,
           status: statusOut || '',
+          branch,
+          changes,
+          ...splitGitChanges(changes),
+          commits: logErr ? [] : parseGitLog(logOut),
           log: logErr ? '' : (logOut || ''),
         });
       });
@@ -282,9 +454,58 @@ function getGitInfo(rootPath) {
   });
 }
 
+function runGit(rootPath, args) {
+  const validation = validateProjectPath(rootPath);
+  if (!validation.valid) return Promise.resolve({ success: false, error: validation.error });
+
+  return new Promise((resolve) => {
+    execFile('git', ['-C', rootPath, ...args], { timeout: 10000 }, (err, stdout, stderr) => {
+      resolve({
+        success: !err,
+        output: stdout || '',
+        error: err ? (stderr || err.message) : '',
+      });
+    });
+  });
+}
+
+async function handleGitAction(rootPath, payload) {
+  const action = String(payload?.action || '');
+  const file = String(payload?.file || '');
+  const message = String(payload?.message || '').trim();
+
+  if (['stage', 'unstage', 'discard', 'diff', 'diff-staged', 'delete-untracked'].includes(action) && (!file || path.isAbsolute(file))) {
+    return { success: false, error: 'Select a changed file first.' };
+  }
+
+  if (action === 'stage') return runGit(rootPath, ['add', '--', file]);
+  if (action === 'stage-all') return runGit(rootPath, ['add', '--all']);
+  if (action === 'unstage') return runGit(rootPath, ['restore', '--staged', '--', file]);
+  if (action === 'unstage-all') return runGit(rootPath, ['restore', '--staged', '--', '.']);
+  if (action === 'discard') return runGit(rootPath, ['restore', '--', file]);
+  if (action === 'diff') return runGit(rootPath, ['diff', '--', file]);
+  if (action === 'diff-staged') return runGit(rootPath, ['diff', '--cached', '--', file]);
+  if (action === 'delete-untracked') return runGit(rootPath, ['clean', '-fd', '--', file]);
+  if (action === 'revert-commit') {
+    if (!/^[a-f0-9]{7,40}$/i.test(file)) return { success: false, error: 'Select a commit to revert.' };
+    return runGit(rootPath, ['revert', '--no-edit', file]);
+  }
+  if (action === 'commit') {
+    if (!message) return { success: false, error: 'Commit message is required.' };
+    return runGit(rootPath, ['commit', '-m', message]);
+  }
+
+  return { success: false, error: 'Unknown git action.' };
+}
+
 ipcMain.handle('terminal-list-project-files', (_, rootPath) => listProjectFiles(rootPath));
 ipcMain.handle('terminal-read-project-file', (_, { rootPath, relativePath }) => readProjectTextFile(rootPath, relativePath));
+ipcMain.handle('terminal-write-project-file', (_, { rootPath, relativePath, text }) => writeProjectTextFile(rootPath, relativePath, text));
+ipcMain.handle('terminal-create-project-entry', (_, { rootPath, parentPath, name, type }) => createProjectEntry(rootPath, parentPath, name, type));
+ipcMain.handle('terminal-rename-project-entry', (_, { rootPath, relativePath, name }) => renameProjectEntry(rootPath, relativePath, name));
+ipcMain.handle('terminal-delete-project-entry', (_, { rootPath, relativePath }) => deleteProjectEntry(rootPath, relativePath));
 ipcMain.handle('terminal-git-info', (_, rootPath) => getGitInfo(rootPath));
+ipcMain.handle('terminal-git-action', (_, { rootPath, action, file, message }) => handleGitAction(rootPath, { action, file, message }));
 
 // ─── File / folder dialogs ───────────────────────────────────────────────────
 
@@ -434,6 +655,50 @@ function formatProcessLogExport(payload) {
 
 function getPathKey(env) {
   return Object.keys(env).find((key) => key.toLowerCase() === 'path') || 'PATH';
+}
+
+function mergePathValues(...values) {
+  const seen = new Set();
+  const parts = [];
+
+  values.join(path.delimiter).split(path.delimiter).forEach((part) => {
+    const value = String(part || '').trim();
+    const key = value.toLowerCase();
+    if (!value || seen.has(key)) return;
+    seen.add(key);
+    parts.push(value);
+  });
+
+  return parts.join(path.delimiter);
+}
+
+function getFreshWindowsPath() {
+  if (process.platform !== 'win32') return Promise.resolve('');
+  if (windowsPathCache) return windowsPathCache;
+
+  const script = [
+    "$machine=[Environment]::GetEnvironmentVariable('Path','Machine')",
+    "$user=[Environment]::GetEnvironmentVariable('Path','User')",
+    "[Environment]::ExpandEnvironmentVariables(($machine,$user -join ';'))",
+  ].join(';');
+
+  windowsPathCache = new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-Command', script], { windowsHide: true, timeout: 2500 }, (err, stdout) => {
+      if (err || !stdout) return resolve('');
+      resolve(String(stdout || '').split(/\r?\n/).filter(Boolean).join(path.delimiter));
+    });
+  });
+
+  return windowsPathCache;
+}
+
+async function enrichRuntimeEnv(env) {
+  const pathKey = getPathKey(env);
+  const freshWindowsPath = await getFreshWindowsPath();
+  if (freshWindowsPath) {
+    env[pathKey] = mergePathValues(env[pathKey], freshWindowsPath);
+  }
+  return env;
 }
 
 function parseEnvFile(contents) {
@@ -887,6 +1152,7 @@ ipcMain.handle('launch-project', async (_, { id, command, cwd, env: projectEnv }
 
   try {
     const launch = buildLaunchOptions(cwd, command, projectEnv);
+    await enrichRuntimeEnv(launch.env);
     const shellExe = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
     const shellArgs = process.platform === 'win32' ? ['/c', launch.command] : ['-c', launch.command];
     
@@ -954,7 +1220,7 @@ ipcMain.handle('is-running', (_, id) => runningProcesses.has(id));
 
 const terminals = new Map();
 
-ipcMain.handle('terminal-create', async (_, { id, cwd }) => {
+ipcMain.handle('terminal-create', async (_, { id, cwd, cols, rows }) => {
   if (terminals.has(id)) {
     try { await terminateProcessTree(terminals.get(id)); } catch(e) {}
     terminals.delete(id);
@@ -964,29 +1230,42 @@ ipcMain.handle('terminal-create', async (_, { id, cwd }) => {
   const shellExe = settings.defaultShell || (process.platform === 'win32' ? 'cmd.exe'
                  : process.env.SHELL || '/bin/bash');
 
-  const launch = cwd ? buildLaunchOptions(cwd, '') : { env: { ...process.env, TERM: 'xterm-256color' } };
-  const proc = spawn(shellExe, [], {
-    cwd: cwd || os.homedir(),
-    env: { ...launch.env, TERM: 'xterm-256color' },
-    stdio: ['pipe','pipe','pipe'],
-  });
+  try {
+    const launch = cwd ? buildLaunchOptions(cwd, '') : { env: { ...process.env, TERM: 'xterm-256color' } };
+    await enrichRuntimeEnv(launch.env);
+    const proc = pty.spawn(shellExe, [], {
+      name: 'xterm-256color',
+      cols: Math.max(20, Number(cols) || 80),
+      rows: Math.max(6, Number(rows) || 24),
+      cwd: cwd || os.homedir(),
+      env: { ...launch.env, TERM: 'xterm-256color', COLORTERM: 'truecolor' },
+    });
 
-  terminals.set(id, proc);
+    terminals.set(id, proc);
 
-  proc.stdout.on('data', (d) => mainWindow?.webContents.send('terminal-data', { id, data: d.toString() }));
-  proc.stderr.on('data', (d) => mainWindow?.webContents.send('terminal-data', { id, data: d.toString() }));
-  proc.on('exit', () => {
-    terminals.delete(id);
-    mainWindow?.webContents.send('terminal-exit', { id });
-  });
+    proc.onData((data) => mainWindow?.webContents.send('terminal-data', { id, data }));
+    proc.onExit(({ exitCode }) => {
+      terminals.delete(id);
+      mainWindow?.webContents.send('terminal-exit', { id, code: exitCode });
+    });
 
-  return { success: true, pid: proc.pid };
+    return { success: true, pid: proc.pid };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
 });
 
 ipcMain.handle('terminal-write', (_, { id, data }) => {
   const proc = terminals.get(id);
-  if (proc?.stdin) { proc.stdin.write(data); return true; }
+  if (proc?.write) { proc.write(data); return true; }
   return false;
+});
+
+ipcMain.handle('terminal-resize', (_, { id, cols, rows }) => {
+  const proc = terminals.get(id);
+  if (!proc?.resize) return false;
+  proc.resize(Math.max(20, Number(cols) || 80), Math.max(6, Number(rows) || 24));
+  return true;
 });
 
 ipcMain.handle('terminal-kill', async (_, id) => {

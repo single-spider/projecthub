@@ -29,12 +29,18 @@ contextBridge.exposeInMainWorld('api', {
   isRunning: (id) => ipcRenderer.invoke('is-running', id),
 
   // Terminal
-  terminalCreate: (id, cwd) => ipcRenderer.invoke('terminal-create', { id, cwd }),
+  terminalCreate: (id, cwd, size) => ipcRenderer.invoke('terminal-create', { id, cwd, ...(size || {}) }),
   terminalWrite: (id, data) => ipcRenderer.invoke('terminal-write', { id, data }),
+  terminalResize: (id, cols, rows) => ipcRenderer.invoke('terminal-resize', { id, cols, rows }),
   terminalKill: (id) => ipcRenderer.invoke('terminal-kill', id),
   terminalListProjectFiles: (rootPath) => ipcRenderer.invoke('terminal-list-project-files', rootPath),
   terminalReadProjectFile: (rootPath, relativePath) => ipcRenderer.invoke('terminal-read-project-file', { rootPath, relativePath }),
+  terminalWriteProjectFile: (rootPath, relativePath, text) => ipcRenderer.invoke('terminal-write-project-file', { rootPath, relativePath, text }),
+  terminalCreateProjectEntry: (rootPath, parentPath, name, type) => ipcRenderer.invoke('terminal-create-project-entry', { rootPath, parentPath, name, type }),
+  terminalRenameProjectEntry: (rootPath, relativePath, name) => ipcRenderer.invoke('terminal-rename-project-entry', { rootPath, relativePath, name }),
+  terminalDeleteProjectEntry: (rootPath, relativePath) => ipcRenderer.invoke('terminal-delete-project-entry', { rootPath, relativePath }),
   terminalGitInfo: (rootPath) => ipcRenderer.invoke('terminal-git-info', rootPath),
+  terminalGitAction: (rootPath, action, file, message) => ipcRenderer.invoke('terminal-git-action', { rootPath, action, file, message }),
 
   // Events
   onProcessOutput: (cb) => { ipcRenderer.on('process-output', (_, d) => cb(d)); },
