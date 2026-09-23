@@ -814,8 +814,8 @@ button { font: inherit; }
   animation-delay: calc(125ms + var(--stagger) * 34ms);
 }
 .ring.wake-deploy .wedge {
-  animation-duration: 600ms;
-  animation-delay: calc(180ms + var(--stagger) * 46ms);
+  animation-duration: 520ms;
+  animation-delay: calc(130ms + var(--stagger) * 28ms);
 }
 @keyframes moduleDeploy {
   0% {
